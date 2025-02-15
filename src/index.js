@@ -1,7 +1,5 @@
-const globals = require('./globals')
-const db = globals.db
-const bot = globals.bot
-const msgs = globals.msgs
+const { db, bot, msgs } = require('./globals')
+const { chatQueryCallback } = require('./utils')
 
 // configure db
 
@@ -28,39 +26,35 @@ db.exec(`
 
 // configure bot
 
-// hook to save users
-bot.on('message', (msg) => {
+const cmds = require('./cmds')
+
+bot.on('message', function(msg) {
   const chatId = msg.chat.id
-  // if id isn't saved, save it and tell to the user
-  db.get(`SELECT * FROM chat WHERE id = ${chatId}`, function(error, row) {
-    // chat not saved, so save it and notify user
-    if (row == undefined) {
-      db.exec(`INSERT INTO chat (id) VALUES (${chatId})`)
+  const msgText = msg.text
+  console.log(`${chatId}: ${msgText}`)
+
+  if (cmds.validateAndExec(chatId, msgText)) {
+    return;
+  }
+
+  chatQueryCallback(chatId, function(err, row) {
+    // chat already saved. don't do anything
+    if (row) {
+      return
+    }
+
+    db.exec(`INSERT INTO chat (id) VALUES (${chatId})`, function(err) {
+      console.log(`new user ${chatId} saved`)
       bot.sendMessage(chatId, msgs.DATA_SAVING_NOTICE);
       bot.sendMessage(chatId, msgs.HELP)
-    }
+    })
   })
 });
 
-// detect commands
-const cmds = require('./cmds')
-
-bot.onText(cmds.REGEX, (msg, match) => {
-  try {
-    const name = match[1]
-    const args = match[2]
-    const command = cmds.COMMANDS[name]
-    command(args)
-  } catch (error) {
-    bot.sendMessage(chatId, msgs.INVALID_COMMAND)
-  }
-})
-
 const yf = require('yahoo-finance2').default; // https://github.com/gadicc/node-yahoo-finance2
 
-const aaaa = async () => {
+const aaaa = async function() {
   const result = await yf.quote('AAAA')
-
   console.log(result)
 }
 
