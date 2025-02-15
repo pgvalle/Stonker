@@ -1,5 +1,6 @@
 const { db, bot, msgs } = require('./globals')
 const { chatQueryCallback } = require('./utils')
+const { checkAndExecCmd } = require('./cmds')
 
 // configure db
 
@@ -26,15 +27,13 @@ db.exec(`
 
 // configure bot
 
-const cmds = require('./cmds')
-
 bot.on('message', function(msg) {
   const chatId = msg.chat.id
   const msgText = msg.text
   console.log(`${chatId}: ${msgText}`)
 
-  if (cmds.validateAndExec(chatId, msgText)) {
-    return;
+  if (checkAndExecCmd(chatId, msgText)) {
+    return
   }
 
   chatQueryCallback(chatId, function(err, row) {
