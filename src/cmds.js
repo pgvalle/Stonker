@@ -1,38 +1,54 @@
-const globals = require('./globals')
-const db = globals.db
-const bot = globals.bot
-const msgs = globals.msgs
+const { db, bot, msgs } = require('./globals')
+const { chatQueryCallback } = require('./utils')
 
-function watch(chat, args) {
+function watch(chatId, args) {
+  
+}
+
+function unwatch(chatId, args) {
 
 }
 
-function unwatch(chat, args) {
-
-}
-
-function forget(chat, args) {
-  const chatId = chat.id
+function forget(chatId, args) {
   if (args) {
     bot.sendMessage(chatId, msgs.WRONG_SYNTAX)
     return
   }
 
-  db.get(`SELECT * FROM chat WHERE id = ${chatId}`, function(err, row) {
-    if (row) {
-      db.exec(`DELETE FROM chat WHERE id == ${chatId}`, function(err) {
-        console.log(`user ${chatId} deleted`)
-      })
-      bot.sendMessage(chatId, msgs.BYE_BYE)
+  chatQueryCallback(chatId, function(err, row) {
+    // starting bot with /forget command. Weird but may happen
+    if (!row) {
+      console.log('unsaved user trying to forget themselves')
+      bot.sendMessage(chatId, )
+      return;
     }
+    
+    db.exec(`DELETE FROM chat WHERE id = ${chatId}`, function(err) {
+      console.log(`user ${chatId} deleted`)
+      bot.sendMessage(chatId, msgs.BYE_BYE)
+    })
   })
+}
 
-  
+var COMMANDS = {
+  watch, unwatch, forget
+}
+
+function validateAndExec(chatId, msgText) {
+  var cmdInfo = msgText.match(/^\/(\S+)(?:\s+(.+))?$/)
+  if (!cmdInfo) {
+    return false
+  }
+
+  const cmdName = cmdInfo[1]
+  const cmdArgs = cmdInfo[2]
+  const cmd = COMMANDS[cmdName]
+  if (cmd) {
+    cmd(chatId, cmdArgs)
+  }
+  return cmd != undefined;
 }
 
 module.exports = {
-  REGEX: /^\/(\S+)(?:\s+(.+))?$/,
-  COMMANDS: {
-    watch, unwatch, forget
-  },
+  validateAndExec
 }
