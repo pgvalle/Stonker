@@ -12,8 +12,9 @@ db.exec(`
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS watcher (
-    ticker    VARCHAR(8)  NOT NULL PRIMARY KEY,
-    chat_id   INTEGER     NOT NULL REFERENCES chat(id) ON DELETE CASCADE,
+    name      VARCHAR(8) NOT NULL PRIMARY KEY,
+    ticker    VARCHAR(8) NOT NULL,
+    chat_id   INTEGER    NOT NULL REFERENCES chat(id) ON DELETE CASCADE,
     ref_price REAL,
     t2n       INTEGER, -- time to notify
     cur_t2n   INTEGER  -- current time to notify
@@ -49,12 +50,3 @@ bot.on('message', function(msg) {
     })
   })
 });
-
-const yf = require('yahoo-finance2').default; // https://github.com/gadicc/node-yahoo-finance2
-
-const aaaa = async function() {
-  const result = await yf.quote('AAAA')
-  console.log(result)
-}
-
-aaaa()
