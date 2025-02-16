@@ -10,4 +10,6 @@ const msgs = {
   WRONG_SYNTAX: 'Wrong command syntax'
 }
 
-module.exports = msgs
+module.exports = {
+  msgs
+}
