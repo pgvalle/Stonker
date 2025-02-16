@@ -53,6 +53,23 @@ function del(chat, args) {
     }
 }
 
+function info(chat, args) {
+    if (args?.length != 1) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
+
+    yf.quote(args[0]).then((stock) => {
+        bot.sendMessage(chat, `
+company name: ${stock?.shortName}
+asset price: ${stock?.regularMarketPrice}
+currency: ${stock?.currency}
+market: ${stock?.market}
+market state: ${stock?.marketState}
+exgchange: ${stock?.exchange}`)
+    })
+}
+
 function unsub(chat) {
     const query = `DELETE FROM user WHERE chat == ${chat}`
     queryThenLog(query, chat, `user ${chat} unsubscribed`)
@@ -64,7 +81,7 @@ function help(chat) {
 }
 
 var commands = {
-    add, del, unsub, help
+    add, del, unsub, help, info
 }
 
 // bot """main"""
@@ -100,7 +117,7 @@ bot.on('message', (msg) => {
 
 // stock monitoring here
 
-setInterval(() => {
+setInterval(async () => {
     // for each user
     const query = `SELECT * FROM watcher`
     db.all(query, (err, rows) => {
