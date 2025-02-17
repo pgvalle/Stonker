@@ -1,12 +1,10 @@
+const StockSocket = require('stocksocket') // https://github.com/gregtuc/StockSocket
+const YahooFinance = require('yahoo-finance2').default; // https://github.com/gadicc/node-yahoo-finance2
+YahooFinance.suppressNotices(['yahooSurvey'])
+
 const { db } = require('./db')
-const yf = require('yahoo-finance2').default; // https://github.com/gadicc/node-yahoo-finance2
 
-const TelegramBot = require('node-telegram-bot-api') // https://github.com/yagop/node-telegram-bot-api
-
-const TELEGRAM_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
-const bot = new TelegramBot(TELEGRAM_TK, { polling: true });
-
-function queryThenLog(query, chat, msg) {
+function dbExecThenLog(query, chat, msg) {
     db.exec(query, (err) => {
         msg = err || msg
         console.log(msg)
@@ -14,23 +12,54 @@ function queryThenLog(query, chat, msg) {
     })
 }
 
+const TelegramBot = require('node-telegram-bot-api') // https://github.com/yagop/node-telegram-bot-api
+const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
+const bot = new TelegramBot(TELEGRAM_BOT_TK, { polling: true })
+
 // bot commands
 
 function add(chat, args) {
-    if (!args || args.length != 2) {
+    if (!args || args.length % 2 == 1) {
         bot.sendMessage(chat, 'Wrong command syntax.')
         return
     }
 
-    const ticker = args[0]
-    const change = args[1]
-    yf.quote(ticker).then((stock) => {
-        const query = `INSERT OR REPLACE INTO watcher (ticker, chat, ref_price, change, ref_change)
-            VALUES ('${ticker}', ${chat}, ${stock.regularMarketPrice}, ${change}, ${change})`
-        const msg = `user ${chat} watching each ${100 * change}% change to
- current price (${stock.regularMarketPrice}) of ${ticker} stock`
-        queryThenLog(query, chat, msg)
-    })
+    async function innerAdd(ticker, change) {
+        const quote = await YahooFinance.quote(ticker)
+        if (!quote) {
+            bot.sendMessage(chat, `I do not know a company with the ticker ${ticker}`)
+            return
+        }
+
+        const query1 = `SELECT * FROM watcher WHERE ticker == '${ticker}'`
+        db.all(query1, (err, rows) => {
+            if (rows.indexOf(ticker) < 0) {
+                StockSocket.addTicker(ticker, (stockData) => {
+                    
+                })
+            }
+        })
+        
+
+        const price = quote.regularMarketPrice
+        const query = `
+            INSERT OR REPLACE INTO watcher (ticker, chat, ref_price, change, ref_change)
+            VALUES ('${ticker}', ${chat}, ${price}, ${change}, ${change})`
+        var msg = `user ${chat} watching changes of ${100 * change}% `
+        msg    += `to ${quote.shortName} stocks. The Rerefence price is ${price}`
+
+        dbExecThenLog(query, chat, msg)
+    }
+
+    for (var i = 0; i < args.length; i += 2) {
+        const numArg = Number(args[i + 1])
+        if (isNaN(numArg) || numArg <= 0) {
+            bot.sendMessage(chat, `${args[1]} is not a number greater than 0`)
+            return
+        }
+
+        innerAdd(args[i].toUpperCase(), numArg)
+    }
 }
 
 function del(chat, args) {
@@ -42,49 +71,69 @@ function del(chat, args) {
     // wildcard. delete all
     if (args.indexOf('*') >= 0) {
         const query = `DELETE FROM watcher WHERE chat == ${chat}`
-        queryThenLog(query, chat, `user ${chat} not watching any stocks`)
+        dbExecThenLog(query, chat, `user ${chat} not watching stocks anymore`)
         return
     }
 
     // try deleting each one of arguments
     for (const ticker of args) {
         const query = `DELETE FROM watcher WHERE ticker == '${ticker}' AND chat == ${chat}`
-        queryThenLog(query, chat, `user ${chat} not watching ${ticker} anymore`)
+        dbExecThenLog(query, chat, `user ${chat} not watching ${ticker} anymore`)
     }
 }
 
 function info(chat, args) {
-    if (args?.length != 1) {
+    if (!args || args.length != 1) {
         bot.sendMessage(chat, 'Wrong command syntax.')
         return
     }
 
-    yf.quote(args[0]).then((stock) => {
-        bot.sendMessage(chat, `
-company name: ${stock?.shortName}
-asset price: ${stock?.regularMarketPrice}
-currency: ${stock?.currency}
-market: ${stock?.market}
-market state: ${stock?.marketState}
-exgchange: ${stock?.exchange}`)
-    })
+    async function innerInfo(ticker) {
+        const quote = await YahooFinance.quote(ticker)
+        if (!quote) {
+            bot.sendMessage(chat, `I do not know a company with the ticker ${ticker}`)
+            return
+        }
+
+        console.log(quote)
+        var msg = `company name: ${quote.shortName}\n`
+        msg    += `asset price: ${quote.regularMarketPrice}\n`
+        msg    += `currency: ${quote.currency}\n`
+        msg    += `exgchange: ${quote.exchange}\n`
+        msg    += `market: ${quote.market}\n`
+        msg    += `market state: ${quote.marketState}\n`
+
+        bot.sendMessage(chat, msg)
+    }
+
+    innerInfo(args[0])
 }
 
-function unsub(chat) {
+function unsub(chat, args) {
+    if (args) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
+
     const query = `DELETE FROM user WHERE chat == ${chat}`
-    queryThenLog(query, chat, `user ${chat} unsubscribed`)
+    dbExecThenLog(query, chat, `user ${chat} unsubscribed`)
 }
 
-function help(chat) {
-    const cmdsStr = Object.keys(commands).join(', ')
-    bot.sendMessage(chat, `commands: ${cmdsStr}`)
+function help(chat, args) {
+    if (args) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
+
+    const fmtCmds = Object.keys(commands).join(', ')
+    bot.sendMessage(chat, `commands: ${fmtCmds}`)
 }
 
 var commands = {
     add, del, unsub, help, info
 }
 
-// bot """main"""
+// configure bot
 
 bot.on('message', (msg) => {
     const regex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
@@ -95,7 +144,7 @@ bot.on('message', (msg) => {
     db.get(query, (err, row) => {
         if (!row) {
             const query = `INSERT INTO user (chat) VALUES (${chat})`
-            queryThenLog(query, chat, `user ${chat} subscribed`)
+            dbExecThenLog(query, chat, `user ${chat} subscribed`)
             return
         }
 
@@ -115,34 +164,40 @@ bot.on('message', (msg) => {
     })
 });
 
-// stock monitoring here
+// stock monitoring
 
-setInterval(async () => {
+setInterval(() => {
     // for each user
     const query = `SELECT * FROM watcher`
-    db.all(query, (err, rows) => {
-        rows.forEach((row) => {
-            const stockPromisse = yf.quote(row.ticker)
-            stockPromisse.then((stock) => {
-                const price = stock.regularMarketPrice
-                const query = `
-                    UPDATE watcher SET change = CASE
-                        WHEN 1 - ${price} / ref_price > change              THEN change + ref_change
-                        WHEN 1 - ${price} / ref_price < change - ref_change THEN change - ref_change
-                        ELSE change
-                    END
-                    WHERE ticker == '${row.ticker}' AND chat == ${row.chat}`
-                db.exec(query)
+    db.all(query, async (err, rows) => {
+        for (row of rows) {
+            const quote = await YahooFinance.quote(row.ticker)
+            const price = quote.regularMarketPrice
+            const priceRel = price / row.ref_price - 1
+            const query = `
+                UPDATE watcher SET change = CASE
+                    WHEN ${priceRel} > change              THEN change + ref_change
+                    WHEN ${priceRel} < change - ref_change THEN change - ref_change
+                    ELSE change
+                END
+                WHERE ticker == '${row.ticker}' AND chat == ${row.chat}`
 
-                const priceRel = price / row.ref_price
-                if (priceRel - 1 > row.change) {
-                    bot.sendMessage(row.chat, `${row.ticker} stock increased to ${price}`)
+            db.exec(query, (err) => {
+                if (err) {
+                    console.log(err)
+                    return
                 }
 
-                if (priceRel - 1 < row.change - row.ref_change) {
-                    bot.sendMessage(row.chat, `${row.ticker} stock decreased to ${price}`)
+                if (priceRel > row.change || priceRel < row.change - row.ref_change) {
+                    const percent = 100 * priceRel
+                    var msg = `Change of ${percent}% in ${quote.shortName} stocks!\n`
+                    msg    += `They went from ${row.ref_price} to ${price}.`
+
+                    bot.sendMessage(row.chat, msg)
                 }
             })
-        })
+
+            
+        }
     })
-}, 1000)
+}, 5000)
