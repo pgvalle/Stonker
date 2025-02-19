@@ -1,6 +1,16 @@
-const StockSocket = require('stocksocket') // https://github.com/gregtuc/StockSocket
-const YahooFinance = require('yahoo-finance2').default; // https://github.com/gadicc/node-yahoo-finance2
-YahooFinance.suppressNotices(['yahooSurvey'])
+// const YahooFinance = require('yahoo-finance2').default; // https://github.com/gadicc/node-yahoo-finance2
+// YahooFinance.suppressNotices(['yahooSurvey'])
+import 'node-telegram-bot-api' // https://github.com/yagop/node-telegram-bot-api
+
+const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
+const bot = new TelegramBot(TELEGRAM_BOT_TK, { polling: true })
+
+function notifyUsers(watchers, newStockPrice) {
+    for (const { stockId, chat, change } of watchers) {
+        const msg = `${stockId}` // TODO: set message
+        bot.sendMessage(chat, msg)
+    }
+}
 
 const { db } = require('./db')
 
@@ -12,9 +22,6 @@ function dbExecThenLog(query, chat, msg) {
     })
 }
 
-const TelegramBot = require('node-telegram-bot-api') // https://github.com/yagop/node-telegram-bot-api
-const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
-const bot = new TelegramBot(TELEGRAM_BOT_TK, { polling: true })
 
 // bot commands
 
