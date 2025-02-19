@@ -26,20 +26,22 @@ db.exec(`
 
 // update respective stock watchers
 
-function updateStockWatchers(stockId, newPrice) {
+function updateStockWatchers(stockId, newPrice, watchersUpdatedCallback) {
         const action = `
                 UPDATE watcher SET change = CASE
-                    WHEN ?/ref_price-1 > change            THEN change+ref_change
-                    WHEN ?/ref_price-1 < change-ref_change THEN change-ref_change
-                    ELSE change
+                WHEN ?/ref_price-1 > change            THEN change+ref_change
+                WHEN ?/ref_price-1 < change-ref_change THEN change-ref_change
+                ELSE change
                 END
-                WHERE ticker == '?'`
+                WHERE ticker == '?'
+                RETURNING ticker, chat`
         
-        db.exec(action, [newPrice, newPrice, stockId], (err) => {
+        db.all(action, [newPrice, newPrice, stockId], (err, watchers) => {
                 if (err) {
-                        console.log(`${stockId} watchers update failed. Code ${err.code}`)
+                        console.log(`watchers update failed. Code ${err.code}`)
                 } else {
-                        console.log(`all ${stockId} watchers updated`)
+                        console.log(`watchers updated`)
+                        watchersUpdatedCallback(watchers) // TODO: where to pass this??? Where to place it???
                 }
         })
         db.run()
