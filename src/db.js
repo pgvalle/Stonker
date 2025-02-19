@@ -26,7 +26,7 @@ db.exec(`
 
 // update respective stock watchers
 
-function updateStockWatchers(stockId, newPrice, watchersUpdatedCallback) {
+function updateStockWatchers(stockId, newPrice) {
         const action = `
                 UPDATE watcher SET change = CASE
                 WHEN ?/ref_price-1 > change            THEN change+ref_change
@@ -41,7 +41,7 @@ function updateStockWatchers(stockId, newPrice, watchersUpdatedCallback) {
                         console.log(`watchers update failed. Code ${err.code}`)
                 } else {
                         console.log(`watchers updated`)
-                        watchersUpdatedCallback(watchers) // TODO: where to pass this??? Where to place it???
+                        watchersAffectedCallback(watchers) // TODO: where to pass this??? Where to place it???
                 }
         })
         db.run()
@@ -50,15 +50,16 @@ function updateStockWatchers(stockId, newPrice, watchersUpdatedCallback) {
 // update respective stock price
 
 function updateStock(info) {
-        const { id, price } = info
+        const stockId = info.id
+        const newPrice = info.price
         const action = `UPDATE stocks SET price = ? WHERE ticker = '?'`
 
-        db.exec(action, [price, id], (err) => {
+        db.exec(action, [newPrice, stockId], (err) => {
                 if (err) {
-                        console.log(`${id} update failed. Code: ${err.code}`)
+                        console.log(`${stockId} update failed. Code: ${err.code}`)
                 } else {
-                        console.log(`${id} updated to ${price}`)
-                        updateStockWatchers(id, price)
+                        console.log(`${stockId} updated to ${newPrice}`)
+                        updateStockWatchers(stockId, newPrice)
                 }
         })
 }
