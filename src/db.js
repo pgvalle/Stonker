@@ -1,25 +1,83 @@
-const { Database, OPEN_READWRITE, OPEN_CREATE } = require('sqlite3')
+import { Database, OPEN_READWRITE, OPEN_CREATE } from 'sqlite3'
+import { addTicker } from 'stocksocket'
+
+// creating database and tables
+
 const db = new Database('./database.db', OPEN_READWRITE | OPEN_CREATE);
 
-// creating tables
-
 db.exec(`
-    CREATE TABLE IF NOT EXISTS user (
-        chat INTEGER NOT NULL PRIMARY KEY
-    )`
+        CREATE TABLE IF NOT EXISTS watcher (
+                ticker      VARCHAR(8) NOT NULL,
+                chat        INTEGER    NOT NULL,
+                ref_price   REAL       NOT NULL,
+                change      REAL       NOT NULL,
+                change_step REAL       NOT NULL,
+                PRIMARY KEY (ticker, chat)
+        )`
 )
 
+
 db.exec(`
-    CREATE TABLE IF NOT EXISTS watcher (
-        ticker     VARCHAR(8) NOT NULL,
-        chat       INTEGER    NOT NULL REFERENCES user(chat) ON DELETE CASCADE,
-        ref_price  REAL       NOT NULL,
-        change     REAL       NOT NULL,
-        ref_change REAL       NOT NULL,
-        PRIMARY KEY (ticker, chat)
-    )`
+        CREATE TABLE IF NOT EXISTS stock (
+                ticker VARCHAR(8) NOT NULL,
+                price  REAL
+        )`
 )
+
+// update respective stock watchers
+
+function updateStockWatchers(stockId, newPrice) {
+        const action = `
+                UPDATE watcher SET change = CASE
+                    WHEN ?/ref_price-1 > change            THEN change+ref_change
+                    WHEN ?/ref_price-1 < change-ref_change THEN change-ref_change
+                    ELSE change
+                END
+                WHERE ticker == '?'`
+        
+        db.exec(action, [newPrice, newPrice, stockId], (err) => {
+                if (err) {
+                        console.log(`${stockId} watchers update failed. Code ${err.code}`)
+                } else {
+                        console.log(`all ${stockId} watchers updated`)
+                }
+        })
+        db.run()
+}
+
+// update respective stock price
+
+function updateStock(info) {
+        const { id, price } = info
+        const action = `UPDATE stocks SET price = ? WHERE ticker = '?'`
+
+        db.exec(action, [price, id], (err) => {
+                if (err) {
+                        console.log(`${id} update failed. Code: ${err.code}`)
+                } else {
+                        console.log(`${id} updated to ${price}`)
+                        updateStockWatchers(id, price)
+                }
+        })
+}
+
+// set stock update function for stocks that are saved in the database
+
+const action = `SELECT ticker FROM stocks`
+
+db.all(action, (err, rows) => {
+        if (err) {
+                console.log(`SQLite error with code ${err.code}`)
+        } else {
+                for (const row of rows) {
+                        addTicker(row.ticker, updateStock)
+                        console.log(`${row.ticker} update callback set`)
+                }
+        }
+})
+
+// exports
 
 module.exports = {
-    db
+        db, updateStock
 }
