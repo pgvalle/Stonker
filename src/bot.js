@@ -1,222 +1,241 @@
 const TelegramBot = require('node-telegram-bot-api') // https://github.com/yagop/node-telegram-bot-api
-const { addTicker } = require('stocksocket') // https://github.com/gregtuc/StockSocket
-const { Database, OPEN_READWRITE, OPEN_CREATE } = require('sqlite3')
+const ssock = require('stocksocket') // https://github.com/gregtuc/StockSocket
+const sql = require('sqlite3')
 
 const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
 const bot = new TelegramBot(TELEGRAM_BOT_TK, { polling: true })
-const db = new Database('./database.db', OPEN_READWRITE | OPEN_CREATE);
+const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE);
 
 // creating tables
 
 db.exec(`
-        CREATE TABLE IF NOT EXISTS watcher (
-                stockId     VARCHAR(8) NOT NULL,
-                chat        INTEGER    NOT NULL,
-                refPrice    REAL       NOT NULL,
-                pctLow      REAL       NOT NULL,
-                pctHigh     REAL       NOT NULL,
-                PRIMARY KEY (stockId, chat)
-        )`
+    CREATE TABLE IF NOT EXISTS stock (
+        stockId     VARCHAR(8) NOT NULL PRIMARY KEY,
+        price       REAL       NOT NULL
+    )`
 )
 
-db.exec(`
-        CREATE TABLE IF NOT EXISTS stock (
-                stockId     VARCHAR(8) NOT NULL PRIMARY KEY,
-                price       REAL       NOT NULL
-        )`
+db.exec(`CREATE TABLE IF NOT EXISTS watcher (
+        stockId        VARCHAR(8) NOT NULL,
+        chat           INTEGER    NOT NULL,
+        referencePrice REAL       NOT NULL,
+        investedValue  REAL       NOT NULL,
+        low            REAL       NOT NULL,
+        high           REAL       NOT NULL,
+        PRIMARY KEY (stockId, chat)
+    )`
 )
 
-// tell users what stocks changed according to watch parameters and current price
+// stock price update callback
 
-function notifyUsers(watchers, newStockPrice) {
-        for (const { stockId, chat, refPrice } of watchers) {
-                const pct = 100*(newStockPrice/refPrice-1)
-                var msg = `${stockId} stock changed ${pct}%\n`
-                msg    += `ref=${refPrice} latest=${newStockPrice}`
+function updateStock(info) {
+    const stockId = info.id
+    const newStockPrice = info.price
+    const action = `INSERT OR REPLACE INTO stock (stockId, price)
+                    VALUES ('${stockId}', ${newStockPrice})`
 
-                bot.sendMessage(chat, msg)
-        }
+    db.exec(action, (_) => {
+        updateStockWatchers(stockId, newStockPrice)
+    })
 }
 
 // update respective stock watchers
 
 function updateStockWatchers(stockId, newStockPrice) {
-        const action = `
-                UPDATE watcher SET
-                        pctLow = CASE
-                                WHEN ${newStockPrice}/refPrice > pctHigh THEN pctHigh
-                                WHEN ${newStockPrice}/refPrice < pctLow  THEN 2*pctLow-pctHigh
-                        END,
-                        pctHigh = CASE
-                                WHEN ${newStockPrice}/refPrice > pctHigh THEN 2*pctHigh-pctLow
-                                WHEN ${newStockPrice}/refPrice < pctLow  THEN pctLow
-                        END
-                WHERE stockId = '${stockId}' AND ${newStockPrice}/refPrice NOT BETWEEN pctLow AND pctHigh
-                RETURNING *`
-        
-        db.all(action, (err, watchers) => {
-                if (err) {
-                        console.log(`stock watchers update failed. ${err.message}`)
-                } else {
-                        notifyUsers(watchers, newStockPrice)
-                }
-        })
+    const action = `
+        UPDATE watcher SET
+        low = CASE
+            WHEN ${newStockPrice} / referencePrice > high THEN high
+            WHEN ${newStockPrice} / referencePrice < low  THEN 2 * low - high
+        END,
+        high = CASE
+            WHEN ${newStockPrice} / referencePrice > high THEN 2 * high - low
+            WHEN ${newStockPrice} / referencePrice < low  THEN low
+        END
+        WHERE stockId = '${stockId}' AND ${newStockPrice} / referencePrice NOT BETWEEN low AND high
+        RETURNING *`
+    
+    db.all(action, (_, watchers) => {
+        notifyUsers(watchers, newStockPrice)
+    })
 }
 
-// update respective stock price. Callback given to new stock
+// tell users what stocks changed according to watch parameters and current price
 
-function updateStock(info) {
-        const stockId = info.id
-        const newStockPrice = info.price
-        const action = `INSERT OR REPLACE INTO stock (stockId, price)
-                        VALUES ('${stockId}', ${newStockPrice})`
+function notifyUsers(watchers, newStockPrice) {
+    for (const w of watchers) {
+        const rel = newStockPrice / w.referencePrice - 1
 
-        db.exec(action, (err) => {
-                if (err) {
-                        console.log(`${stockId} update failed. ${err.message}`)
-                } else {
-                        updateStockWatchers(stockId, newStockPrice)
-                }
-        })
+        const msg = `change in ${w.stockId} stocks\n`
+                  + `rel=${100 * rel}%\n`
+                  + `earn/loss=${w.investedValue * rel}\n`
+                  + `ref=${w.referencePrice}\n`
+                  + `cur=${newStockPrice}`
+
+        const ms1 = `change in amd`
+
+        bot.sendMessage(w.chat, msg)
+    }
 }
 
 // setup stock monitoring for stocks already saved in database
+// also keep sockets clean of invalid stockIds
 
-db.all(`SELECT stockId FROM stock`, (err, rows) => {
-        if (err) {
-                console.log(`db stocks configuring failed. ${err.message}`)
-        } else {
-                for (const { stockId } of rows) {
-                        addTicker(stockId, updateStock)
-                }
+function refreshSSockets() {
+    ssock.removeAllTickers()
+    
+    db.all(`SELECT stockId FROM stock`, (_, stocks) => {
+        for (const s of stocks) {
+            ssock.addTicker(s.stockId, updateStock)
         }
-})
+    })
+}
+
+refreshSSockets()
+setInterval(refreshSSockets, 30000)
 
 // bot commands
 
 function watch(chat, args) {
-        if (args?.length !== 2) {
-                bot.sendMessage(chat, 'Wrong command syntax.')
-                return
+    if (!args || args.length !== 3) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
+
+    const changeRange = Number(args[1])
+    const valueInvested = Number(args[2])
+    // changeRange = Math.abs(parseFloat(changeRange))
+
+    // if (isNaN(changeRange)) {
+    //     bot.sendMessage(chat, `${args[1]} is not a number bro.`)
+    //     return
+    // }
+
+    // if (changeRange < 0.0001) {
+    //     bot.sendMessage(chat, `That number is too small bro`)
+    //     return
+    // }
+    
+    const stockId = args[0].toUpperCase()
+    const action = `SELECT * FROM stock WHERE stockId = '${stockId}'`
+
+    db.get(action, (_, row) => {
+        if (!row) {
+            bot.sendMessage(chat, `${stockId} not found. Try again later.`)
+            ssock.addTicker(stockId, updateStock)
+            return
         }
 
-        const changeRange = args[1]
+        console.log(1-changeRange)
+        console.log(1+changeRange)
+        const action = `
+                INSERT OR REPLACE INTO watcher (stockId, chat,
+                    referencePrice, investedValue, low, high)
+                VALUES ('${stockId}', ${chat}, ${row.price},
+                    ${valueInvested}, ${1-changeRange}, ${1+changeRange})`
 
-        if (isNaN(Number(changeRange))) {
-                bot.sendMessage(chat, `${changeRange} is not a number bro.`)
-                return
-        }
-        
-        const stockId = args[0].toUpperCase()
-        const action = `SELECT * FROM stock WHERE stockId = '${stockId}'`
-
-        db.get(action, (err, row) => {
-                if (err) {
-                        bot.sendMessage(chat, `Failed to add ${stockId} watcher. SQLite error.`)
-                        return
-                }
-
-                if (!row ||) {
-                        bot.sendMessage(chat, `${stockId} not found. Try again later.`)
-                        addTicker(stockId, updateStock)
-                        return
-                }
-
-                const action = `
-                        INSERT OR REPLACE INTO watcher (stockId, chat, refPrice, pctLow, pctHigh)
-                        VALUES ('${stockId}', ${chat}, ${row.price}, ${1-changeRange}, ${1+changeRange})`
-        
-                db.exec(action, (err) => {
-                        if (err) {
-                                bot.sendMessage(chat, `Failed to add ${stockId}.`)
-                        } else {
-                                bot.sendMessage(chat, `${stockId} watcher added.`)
-                        }
-                })
+        db.exec(action, (_) => {
+            bot.sendMessage(chat, `${stockId} watcher added.`)
         })
+    })
 }
 
 function forget(chat, args) {
-        var action = `DELETE FROM watcher WHERE chat = ${chat}`
-        
-        // Wildcard. Delete all
-        if (args) {
-                const list = `('` + args.join(`', '`) + `')`
-                action = `DELETE FROM watcher WHERE stockId IN ${list} AND chat = ${chat}`
-        }
+    var action = `DELETE FROM watcher WHERE chat = ${chat}`
+    var reply = 'All watchers deleted.'
+    
+    // no args mean delete all
+    if (args) {
+        const watchers = `('` + args.join(`', '`).toUpperCase() + `')`
+        action = `DELETE FROM watcher WHERE stockId IN ${watchers} AND chat = ${chat}`
+        reply = 'Deleted specified watchers.'
+    }
 
-        db.exec(action, (err) => {
-                if (err) {
-                        bot.sendMessage(chat, `Failed to delete watchers.`)
-                } else {
-                        bot.sendMessage(chat, `Watchers deleted.`)
-                }
-        })
+    db.exec(action, (_) => {
+        bot.sendMessage(chat, reply)
+    })
 }
 
 function info(chat, args) {
-        if (args?.length != 1) {
-                bot.sendMessage(chat, 'Wrong command syntax.')
-                return
-        }
+    if (!args || args.length !== 1) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
 
-        bot.sendMessage(chat, `Comming soon...`)
+    bot.sendMessage(chat, 'Comming soon...')
 }
 
 function list(chat, args) {
-        if (args) {
-                bot.sendMessage(chat, 'Wrong command syntax.')
-                return
+    if (args) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
+
+    const action = `SELECT * FROM watcher WHERE chat = ${chat}`
+
+    db.all(action, (_, watchers) => {
+        const msgOpts = { parse_mode: 'MarkdownV2' }
+        var msg = 'Here are all your watchers\n```'
+
+        for (const w of watchers) {
+            msg += `${w.stockId}:\n`
+            msg += ` ref=${w.referencePrice}\n`
+            msg += ` invested=${w.investedValue}\n`
+            msg += ` low=${100 * (w.low - 1)}%\n`
+            msg += ` high=${100 * (w.high - 1)}%\n`
         }
 
-        const action = `SELECT * FROM watcher WHERE chat = ${chat}`
+        bot.sendMessage(chat, msg + '```\n', msgOpts)
+    })
+}
 
-        db.all(action, (err, rows) => {
-                var msg = `Here are all your watchers:\`\`\`\n`
+function stock(chat, args) {
+    if (!args || args.length !== 1) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
 
-                for (const { stockId, refPrice, pctLow, pctHigh } of rows) {
-                        msg += ` - ${stockId}: ref=${refPrice} low=${pctLow} high=${pctHigh}\n`
-                }
+    const stockId = args[0].toUpperCase()
+    const action = `SELECT * FROM stock WHERE stockId = '${stockId}'`
 
-                bot.sendMessage(chat, msg + '\n```', {
-                        parse_mode: 'MarkdownV2'
-                })
-        })
+    db.get(action, (_, s) => {
+        bot.sendMessage(chat, `id: ${s.stockId}\nprice: ${s.price}`)
+    })
 }
 
 function help(chat, args) {
-        if (args) {
-                bot.sendMessage(chat, 'Wrong command syntax.')
-                return
-        }
+    if (args) {
+        bot.sendMessage(chat, 'Wrong command syntax.')
+        return
+    }
 
-        const separator = '\n  - '
-        const fmtCmds = Object.keys(commands).join(separator)
-        bot.sendMessage(chat, `Commands:${separator}${fmtCmds}`)
+    const separator = '\n - '
+    const cmdsFmt = Object.keys(commands).join(separator)
+    bot.sendMessage(chat, `Commands:${separator}${cmdsFmt}`)
 }
 
 var commands = {
-        watch, forget, help, list
+    watch, forget, help, list, stock
 }
 
 // configure bot
 
 bot.on('message', (msg) => {
-        const regex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-        const chat = msg.chat.id
-        const cmdInfo = msg.text.match(regex)?.groups
+    const regex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+    const chat = msg.chat.id
+    const cmdInfo = msg.text.match(regex)?.groups
 
-        const command = commands[cmdInfo?.name]
-        if (cmdInfo && command) {
-                const args = cmdInfo.args?.split(' ')
-                command(chat, args)
-                return
-        }
-        
-        if (cmdInfo) {
-                bot.sendMessage(chat, 'what???')
-                return
-        }
+    const command = commands[cmdInfo?.name]
+    if (cmdInfo && command) {
+        const args = cmdInfo.args?.split(' ')
+        command(chat, args)
+        return
+    }
+    
+    if (cmdInfo) {
+        bot.sendMessage(chat, 'what???')
+        return
+    }
 
-        bot.sendMessage(chat, msg.text)
+    bot.sendMessage(chat, msg.text)
 });
