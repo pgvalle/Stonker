@@ -68,17 +68,20 @@ function updateInvestments(stockId, newStockPrice) {
     })
 }
 
-// Information message of investments
-function formatInvestment(investment, newStockPrice) {
-    const { stockId, refStockPrice, investedValue } = investment
-    const change = newStockPrice / refStockPrice - 1
-    const gainLoss = (investedValue * change)
+// Formatted information of investment i
+function formatInvestment(i, newStockPrice) {
+    const formatedRefStockPrice = i.refStockPrice.toPrecision(2)
+    const formatedNewStockPrice = i.newStockPrice.toPrecision(2)
+    const formatedValue = i.value.toPrecision(2)
 
-    return `change in ${stockId} stocks\n`
-         + `referencePrice=$${refStockPrice.toPrecision(2)}\n`
-         + `price=$${newStockPrice.toPrecision(2)}\n`
-         + `invested=$${investedValue.toPrecision(2)}\n`
-         + `gain/loss=$${gainLoss.toPrecision(2)}\n`
+    const change = (newStockPrice / i.refStockPrice - 1)
+    const formatedDiff = (change >= 0 ? '+' : '-') + (i.value * change).toPrecision(2)
+    
+    return `change in ${i.stockId} stocks\n`
+         + `price when you invested: $${formatedRefStockPrice}\n`
+         + `most recent price: $${formatedNewStockPrice}\n`
+         + `investment: $${formatedValue}\n`
+         + `investment diff: $${formatedDiff}\n`
 }
 
 // Users may watch invalid stocks. That ends up adding invalid listeners.
@@ -107,7 +110,7 @@ function invest(user, args) {
         return
     }
 
-    const investedValue = Number(args[1])
+    const value = Number(args[1])
     // changeRange = Math.abs(parseFloat(changeRange))
 
     // if (isNaN(changeRange)) {
@@ -134,7 +137,7 @@ function invest(user, args) {
         console.log(1+changeRange)
        const action = `
                INSERT OR REPLACE INTO investment (stockId, user,
-                    refStockPrice, investedValue, lowValue, highValue)
+                    refStockPrice, value, lowValue, highValue)
                 VALUES ('${stockI}', ${user}, ${row.price},
                     ${investedVale}, ${1-changeRange}, ${1+changeRange})`
         db.exec(action, (_) => {
@@ -161,44 +164,45 @@ function forget(user, args) {
 
 // TODO: fix me
 function list(user, args) {
-    if (args) {
-        sendMessage(user, 'Wrong command syntax.')
-        return
-    }
+    // if (args) {
+    //     sendMessage(user, 'Wrong command syntax.')
+    //     return
+    // }
 
-    const action = `SELECT * FROM investment WHERE user = ${user}`
+    // const action = `SELECT * FROM investment WHERE user = ${user}`
 
-    db.all(action, (_, investments) => {
-        var msg = 'Here are all your investments\n```'
+    // db.all(action, (_, investments) => {
+    //     var msg = 'Here are all your investments\n```'
 
-        for (const w of investments) {
-            msg += `${w.stockId}:\n`
-            msg += ` ref=${w.refStockPrice}\n`
-            msg += ` invested=${w.investedalue}\n`
-            msg += ` lowValue=${100 * (w.lwValue - 1)}%\n`
-            msg += ` highValue=${100 * (w.ighValue - 1)}%\n`
-        }
+    //     for (const w of investments) {
+    //         msg += `${w.stockId}:\n`
+    //         msg += ` ref=${w.refStockPrice}\n`
+    //         msg += ` invested=${w.investedalue}\n`
+    //         msg += ` lowValue=${w.lowValue}%\n`
+    //         msg += ` highValue=${w.highValue}%\n`
+    //     }
 
-        sendMessage(user, msg + '```\n')
-    })
+    //     sendMessage(user, msg + '```\n')
+    // })
 }
 
 function stock(user, args) {
-    if (!args) {
-        sendMessage(user, 'Wrong command syntax.')
-        return
+    var action = `SELECT * FROM stock`
+    var reply = 'All stocks that I am aware of'
+
+    if (args) {
+        const stockIds = `('` + args.join(`, `) + `')`
+        action = `SELECT * FROM stock WHERE id IN ${stockIds}`
+        reply = 'Stocks you wanted that I am aware of'
     }
 
-    const stockIds = `('` + args.join(`, `) + `')`
-    const action = `SELECT * FROM stock WHERE id IN ${stockIds}`
-
     db.all(action, (_, stocks) => {
-        var msg = 'Stocks you wanted that I am aware of\n```'
         for (const s of stocks) {
-            msg += `${s.id} stock: $${s.price.toPrecision(2)}\n`
+            const formatedPrice = s.price.toPrecision(2)
+            reply += `${s.id} stock: $${formatedPrice}\n`
         }
 
-        sendMessage(user, msg + '```')
+        sendMessage(user, reply + '```')
     })
 }
 
