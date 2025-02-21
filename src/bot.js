@@ -167,7 +167,7 @@ function stock(user, args) {
 
     // existing arguments means list those specified
     if (args) {
-        const stockMICs = `('` + args.join(`, `) + `')`
+        const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
         action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
         reply = 'Stocks you wanted that I am aware of```\n'
     }
