@@ -3,7 +3,16 @@ const ssock = require('stocksocket') // https://github.com/gregtuc/StockSocket
 const sql = require('sqlite3')
 
 const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
-const bot = new TelegramBot(TELEGRAM_BOT_TK, { polling: true })
+const botConfig = {
+    polling: true,
+    request: {
+        agentOptions: {
+            keepAlive: true,
+            family: 4
+        }
+    }
+}
+const bot = new TelegramBot(TELEGRAM_BOT_TK, botConfig)
 const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE);
 
 // utils
@@ -62,8 +71,12 @@ function updateInvestments(stockMIC, stockPrice) {
     db.all(action, (_, affectedInvestments) => {
         // Users should be notified of their affected investments
         for (const ai of affectedInvestments) {
-            const msg = formatInvestment(ai, stockPrice)
-            sendMessage(ai.user, msg)
+            if (ai.lowValue === ai.value || ai.highValue === ai.value) {
+                sendMessage(ai.user, `asdfasdf`)
+            } else {
+                const msg = formatInvestment(ai, stockPrice)
+                sendMessage(ai.user, msg)
+            }
         }
     })
 }
@@ -77,11 +90,11 @@ function formatInvestment(i, stockPrice) {
     const diff = i.value * (stockPrice / i.refStockPrice - 1)
     const formatedDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
     
-    return `change in ${i.stockMIC} stocks\n`
-         + `price when you invested: $${formatedRefStockPrice}\n`
-         + `most recent price: $${formatedNewStockPrice}\n`
-         + `investment: $${formatedValue}\n`
-         + `investment diff: $${formatedDiff}\n`
+    return '```\n' + `${i.stockMIC} stocks\n`
+         + ` price when invested: $${formatedRefStockPrice}\n`
+         + ` latest price: $${formatedNewStockPrice}\n`
+         + ` investment: $${formatedValue}\n`
+         + ` investment diff: $${formatedDiff}` + '```\n'
 }
 
 // Users may watch invalid stocks. That ends up adding invalid listeners.
@@ -105,7 +118,7 @@ setInterval(refreshStockListeners, 30000)
 
 // TODO: fix me
 function invest(user, args) {
-    if (!args || args.length !== 4) {
+    if (!args || args.length !== 3) {
         sendMessage(user, 'Wrong command syntax.')
         return
     }
@@ -113,11 +126,10 @@ function invest(user, args) {
     // TODO: validate inputs
     const stockMIC = args[0].toUpperCase()
     const value = Number(args[1])
-    const lowValue = Number(args[2])
-    const highValue = Number(args[3])
+    const diffValue = Number(args[2])
     const action = `
         INSERT OR REPLACE INTO investment (stockMIC, user, refStockPrice, value, lowValue, highValue)
-        SELECT stock.MIC, ${user}, stock.price, ${value}, ${lowValue}, ${highValue}
+        SELECT stock.MIC, ${user}, stock.price, ${value}, ${value}, ${value}+${diffValue}
         FROM stock WHERE stock.MIC = '${stockMIC}'
         RETURNING rowid`
     
@@ -131,7 +143,7 @@ function invest(user, args) {
     })
 }
 
-function forget(user, args) {
+function dinvest(user, args) {
     var action = `DELETE FROM investment WHERE user = ${user}`
     var reply = 'Now all your investments are gone.'
 
@@ -147,20 +159,26 @@ function forget(user, args) {
     })
 }
 
-function list(user, args) {
-    if (args) {
-        sendMessage(user, 'Wrong command syntax.')
-        return
-    }
+function linvest(user, args) {
+    var action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
+                  ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
+    var reply = 'Here are all your investments'
 
-    const action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
-                    ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
+    // list of investments to look for
+    if (args) {
+        const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
+        action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
+                  ON investment.stockMIC = stock.MIC
+                  WHERE investment.user = ${user} AND stock.MIC IN ${stockMICs}`
+        reply = 'Here are the investments you asked'
+    }
 
     db.all(action, (_, joinInvestmentStock) => {
         for (const jis of joinInvestmentStock) {
-            const msg = formatInvestment(jis, jis.price)
-            sendMessage(jis.user, msg)
+            reply += formatInvestment(jis, jis.price)
         }
+        const user = joinInvestmentStock[0].user
+        sendMessage(user, reply)
     })
 }
 
@@ -168,7 +186,7 @@ function stock(user, args) {
     var action = `SELECT * FROM stock`
     var reply = 'All stocks that I am aware of```\n'
 
-    // existing arguments means list those specified
+    // list of stocks to look for
     if (args) {
         const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
         action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
@@ -186,27 +204,23 @@ function stock(user, args) {
 }
 
 function help(user, args) {
-    console.log('1')
     if (args) {
         sendMessage(user, 'Wrong command syntax.')
         return
     }
-    console.log('2')
 
     const separator = '\n '
     const cmdsFmt = Object.keys(commands).join(separator)
-    console.log('3')
     sendMessage(user, `Commands:${separator}${cmdsFmt}`)
-    console.log('4')
 }
 
 var commands = {
-    invest, forget, help, list, stock
+    invest, linvest, dinvest, help, stock
 }
 
 // configure bot
 
-bot.on('message', (msg) => {
+bot.on('message', async (msg) => {
     const regex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
     const user = msg.chat.id
     const cmdInfo = msg.text.match(regex)?.groups
