@@ -71,11 +71,11 @@ function updateInvestments(stockMIC, newStockPrice) {
 // Formatted information of investment i
 function formatInvestment(i, newStockPrice) {
     const formatedRefStockPrice = i.refStockPrice.toFixed(2)
-    const formatedNewStockPrice = i.newStockPrice.toFixed(2)
+    const formatedNewStockPrice = newStockPrice.toFixed(2)
     const formatedValue = i.value.toFixed(2)
 
-    const change = (newStockPrice / i.refStockPrice - 1)
-    const formatedDiff = (change >= 0 ? '+' : '-') + (i.value * change).toFixed(2)
+    const diff = i.value * (newStockPrice / i.refStockPrice - 1)
+    const formatedDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
     
     return `change in ${i.stockMIC} stocks\n`
          + `price when you invested: $${formatedRefStockPrice}\n`
@@ -123,10 +123,10 @@ function invest(user, args) {
     
     db.get(action, (_, result) => {
         if (result) {
-            sendMessage(user, `${stockMIC} not found. Try again later.`)
-            ssock.addTicker(stockMIC, updateStock)
-        } else {
             sendMessage(user, `${stockMIC} investment added.`)
+        } else {
+            ssock.addTicker(stockMIC, updateStock)
+            sendMessage(user, `${stockMIC} not found. Try again later.`)
         }
     })
 }
@@ -157,7 +157,10 @@ function list(user, args) {
                     ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
 
     db.all(action, (_, joinInvestmentStock) => {
-        console.log(joinInvestmentStock) // TODO: tell user in fact
+        for (const jis of joinInvestmentStock) {
+            const msg = formatInvestment(jis, jis.price)
+            sendMessage(jis.user, msg)
+        }
     })
 }
 
