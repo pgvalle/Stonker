@@ -6,6 +6,12 @@ const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
 const bot = new TelegramBot(TELEGRAM_BOT_TK, { polling: true })
 const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE);
 
+// utils
+
+function sendMessage(user, msg) {
+    sendMessage(user, msg, { parse_mode: 'MarkdownV2' })
+}
+
 // creating tables
 
 db.exec(`
@@ -57,7 +63,7 @@ function updateInvestments(stockId, newStockPrice) {
         // Users should be notified of their affected investments
         for (const ai of affectedInvestments) {
             const msg = formatInvestment(ai, newStockPrice)
-            bot.sendMessage(ai.user, msg)
+            sendMessage(ai.user, msg)
         }
     })
 }
@@ -96,8 +102,8 @@ setInterval(refreshStockListeners, 30000)
 
 // TODO: fix me
 function invest(user, args) {
-    if (!args || args.length !== 4) {
-        bot.sendMessage(user, 'Wrong command syntax.')
+    if (!args || args.length < 2) {
+        sendMessage(user, 'Wrong command syntax.')
         return
     }
 
@@ -105,12 +111,12 @@ function invest(user, args) {
     // changeRange = Math.abs(parseFloat(changeRange))
 
     // if (isNaN(changeRange)) {
-    //     bot.sendMessage(user, `${args[1]} is not a number bro.`)
+    //     sendMessage(user, `${args[1]} is not a number bro.`)
     //     return
     // }
 
     // if (changeRange < 0.0001) {
-    //     bot.sendMessage(user, `That number is too small bro`)
+    //     sendMessage(user, `That number is too small bro`)
     //     return
     // }
     
@@ -119,7 +125,7 @@ function invest(user, args) {
 
     db.get(action, (_, row) => {
         if (!row) {
-            bot.sendMessage(user, `${stockId} not found. Try again later.`)
+            sendMessage(user, `${stockId} not found. Try again later.`)
             ssock.addTicker(stockId, updateStock)
             return
         }
@@ -132,7 +138,7 @@ function invest(user, args) {
                 VALUES ('${stockI}', ${user}, ${row.price},
                     ${investedVale}, ${1-changeRange}, ${1+changeRange})`
         db.exec(action, (_) => {
-            bot.sendMessage(user, `${stockId} investment added.`)
+            sendMessage(user, `${stockId} investment added.`)
         })
     })
 }
@@ -149,30 +155,20 @@ function forget(user, args) {
     }
 
     db.exec(action, (_) => {
-        bot.sendMessage(user, reply)
+        sendMessage(user, reply)
     })
-}
-
-function info(user, args) {
-    if (!args || args.length !== 1) {
-        bot.sendMessage(user, 'Wrong command syntax.')
-        return
-    }
-
-    bot.sendMessage(user, 'Comming soon...')
 }
 
 // TODO: fix me
 function list(user, args) {
     if (args) {
-        bot.sendMessage(user, 'Wrong command syntax.')
+        sendMessage(user, 'Wrong command syntax.')
         return
     }
 
     const action = `SELECT * FROM investment WHERE user = ${user}`
 
     db.all(action, (_, investments) => {
-        const msgOpts = { parse_mode: 'MarkdownV2' }
         var msg = 'Here are all your investments\n```'
 
         for (const w of investments) {
@@ -183,33 +179,38 @@ function list(user, args) {
             msg += ` highValue=${100 * (w.ighValue - 1)}%\n`
         }
 
-        bot.sendMessage(user, msg + '```\n', msgOpts)
+        sendMessage(user, msg + '```\n')
     })
 }
 
 function stock(user, args) {
-    if (!args || args.length !== 1) {
-        bot.sendMessage(user, 'Wrong command syntax.')
+    if (!args) {
+        sendMessage(user, 'Wrong command syntax.')
         return
     }
 
-    const stockId = args[0].toUpperCase()
-    const action = `SELECT * FROM stock WHERE id = '${stockId}'`
+    const stockIds = `('` + args.join(`, `) + `')`
+    const action = `SELECT * FROM stock WHERE id IN ${stockIds}`
 
-    db.get(action, (_, s) => {
-        bot.sendMessage(user, `id: ${s.id}\nprice: ${s.price}`)
+    db.all(action, (_, stocks) => {
+        var msg = 'Stocks you wanted that I am aware of\n```'
+        for (const s of stocks) {
+            msg += `${s.id} stock: $${s.price.toPrecision(2)}\n`
+        }
+
+        sendMessage(user, msg + '```')
     })
 }
 
 function help(user, args) {
     if (args) {
-        bot.sendMessage(user, 'Wrong command syntax.')
+        sendMessage(user, 'Wrong command syntax.')
         return
     }
 
     const separator = '\n - '
     const cmdsFmt = Object.keys(commands).join(separator)
-    bot.sendMessage(user, `Commands:${separator}${cmdsFmt}`)
+    sendMessage(user, `Commands:${separator}${cmdsFmt}`)
 }
 
 var commands = {
@@ -231,9 +232,9 @@ bot.on('message', (msg) => {
     }
     
     if (cmdInfo) {
-        bot.sendMessage(user, 'what???')
+        sendMessage(user, 'what???')
         return
     }
 
-    bot.sendMessage(user, msg.text)
+    sendMessage(user, msg.text)
 });
