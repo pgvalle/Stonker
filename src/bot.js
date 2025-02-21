@@ -122,13 +122,12 @@ function invest(user, args) {
         RETURNING rowid`
     
     db.get(action, (_, result) => {
-        if (!result) {
+        if (result) {
             sendMessage(user, `${stockMIC} not found. Try again later.`)
             ssock.addTicker(stockMIC, updateStock)
-            return
+        } else {
+            sendMessage(user, `${stockMIC} investment added.`)
         }
-
-        sendMessage(user, `${stockMIC} investment added.`)
     })
 }
 
