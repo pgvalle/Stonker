@@ -9,19 +9,19 @@ const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE)
 // utils
 
 function sendMessage(user, msg) {
-    sendMessage(user, msg, { parse_mode: 'MarkdownV2' })
+    bot.sendMessage(user, msg, { parse_mode: 'Markdown' })
 }
 
 // creating tables
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS stock (
-        MIC   VARCHAR(4) NOT NULL PRIMARY KEY,
+        MIC   VARCHAR(8) NOT NULL PRIMARY KEY,
         price REAL       NOT NULL
     );
     
     CREATE TABLE IF NOT EXISTS investment (
-        stockMIC      VARCHAR(4) NOT NULL,
+        stockMIC      VARCHAR(8) NOT NULL,
         user          INTEGER    NOT NULL,
         refStockPrice REAL       NOT NULL,
         value         REAL       NOT NULL,
@@ -33,7 +33,7 @@ db.exec(`
 
 // Add a new entry in stock table. If the entry already exists, then update the price.
 function updateStock(info) {
-    const MIC = info.MIC
+    const MIC = info.id
     const newPrice = info.price
     const action = `INSERT OR REPLACE INTO stock (MIC, price) VALUES ('${MIC}', ${newPrice})`
 
@@ -70,12 +70,12 @@ function updateInvestments(stockMIC, newStockPrice) {
 
 // Formatted information of investment i
 function formatInvestment(i, newStockPrice) {
-    const formatedRefStockPrice = i.refStockPrice.toPrecision(2)
-    const formatedNewStockPrice = i.newStockPrice.toPrecision(2)
-    const formatedValue = i.value.toPrecision(2)
+    const formatedRefStockPrice = i.refStockPrice.toFixed(2)
+    const formatedNewStockPrice = i.newStockPrice.toFixed(2)
+    const formatedValue = i.value.toFixed(2)
 
     const change = (newStockPrice / i.refStockPrice - 1)
-    const formatedDiff = (change >= 0 ? '+' : '-') + (i.value * change).toPrecision(2)
+    const formatedDiff = (change >= 0 ? '+' : '-') + (i.value * change).toFixed(2)
     
     return `change in ${i.stockMIC} stocks\n`
          + `price when you invested: $${formatedRefStockPrice}\n`
@@ -105,44 +105,30 @@ setInterval(refreshStockListeners, 30000)
 
 // TODO: fix me
 function invest(user, args) {
-    if (!args || args.length < 2) {
+    if (!args || args.length !== 4) {
         sendMessage(user, 'Wrong command syntax.')
         return
     }
 
-    const value = Number(args[1])
-    // changeRange = Math.abs(parseFloat(changeRange))
-
-    // if (isNaN(changeRange)) {
-    //     sendMessage(user, `${args[1]} is not a number bro.`)
-    //     return
-    // }
-
-    // if (changeRange < 0.0001) {
-    //     sendMessage(user, `That number is too small bro`)
-    //     return
-    // }
-    
+    // TODO: validate inputs
     const stockMIC = args[0].toUpperCase()
-    const action = `SELECT * FROM stock WHERE MIC = '${stockMIC}'`
-
-    db.get(action, (_, row) => {
-        if (!row) {
+    const value = Number(args[1])
+    const lowValue = Number(args[2])
+    const highValue = Number(args[3])
+    const action = `
+        INSERT OR REPLACE INTO investment (stockMIC, user, refStockPrice, value, lowValue, highValue)
+        SELECT stock.MIC, ${user}, stock.price, ${value}, ${lowValue}, ${highValue}
+        FROM stock WHERE stock.MIC = '${stockMIC}'
+        RETURNING rowid`
+    
+    db.get(action, (_, result) => {
+        if (!result) {
             sendMessage(user, `${stockMIC} not found. Try again later.`)
             ssock.addTicker(stockMIC, updateStock)
             return
         }
 
-        console.log(1-changeRange)
-        console.log(1+changeRange)
-       const action = `
-               INSERT OR REPLACE INTO investment (stockMIC, user,
-                    refStockPrice, value, lowValue, highValue)
-                VALUES ('${stockI}', ${user}, ${row.price},
-                    ${investedVale}, ${1-changeRange}, ${1+changeRange})`
-        db.exec(action, (_) => {
-            sendMessage(user, `${stockMIC} investment added.`)
-        })
+        sendMessage(user, `${stockMIC} investment added.`)
     })
 }
 
@@ -162,47 +148,35 @@ function forget(user, args) {
     })
 }
 
-// TODO: fix me
 function list(user, args) {
-    // if (args) {
-    //     sendMessage(user, 'Wrong command syntax.')
-    //     return
-    // }
+    if (args) {
+        sendMessage(user, 'Wrong command syntax.')
+        return
+    }
 
-    // const action = `SELECT investment.*, stock.price FROM investment LEFT INNER JOIN stock
-    //                 ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
+    const action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
+                    ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
 
-    // db.all(action, (_, investments) => {
-    //     var msg = 'Here are all your investments\n```'
-
-    //     for (const w of investments) {
-    //         msg += `${w.stockMIC}:\n`
-    //         msg += ` ref=${w.refStockPrice}\n`
-    //         msg += ` invested=${w.investedalue}\n`
-    //         msg += ` lowValue=${w.lowValue}%\n`
-    //         msg += ` highValue=${w.highValue}%\n`
-    //     }
-
-    //     sendMessage(user, msg + '```\n')
-    // })
+    db.all(action, (_, joinInvestmentStock) => {
+        console.log(joinInvestmentStock) // TODO: tell user in fact
+    })
 }
 
 function stock(user, args) {
     var action = `SELECT * FROM stock`
-    var reply = 'All stocks that I am aware of\n```'
+    var reply = 'All stocks that I am aware of```\n'
 
     // existing arguments means list those specified
     if (args) {
         const stockMICs = `('` + args.join(`, `) + `')`
         action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
-        reply = 'Stocks you wanted that I am aware of\n```'
+        reply = 'Stocks you wanted that I am aware of```\n'
     }
 
     db.all(action, (_, stocks) => {
         for (const s of stocks) {
-            const formatedMIC = s.MIC.padEnd(4, ' ')
-            const formatedPrice = s.price.toPrecision(2)
-            reply += `${formatedMIC} : $${formatedPrice}\n`
+            const formatedPrice = s.price.toFixed(2)
+            reply += `${s.MIC} : $${formatedPrice}\n`
         }
 
         sendMessage(user, reply + '```')
@@ -210,14 +184,18 @@ function stock(user, args) {
 }
 
 function help(user, args) {
+    console.log('1')
     if (args) {
         sendMessage(user, 'Wrong command syntax.')
         return
     }
+    console.log('2')
 
-    const separator = '\n - '
+    const separator = '\n '
     const cmdsFmt = Object.keys(commands).join(separator)
+    console.log('3')
     sendMessage(user, `Commands:${separator}${cmdsFmt}`)
+    console.log('4')
 }
 
 var commands = {
@@ -228,7 +206,7 @@ var commands = {
 
 bot.on('message', (msg) => {
     const regex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-    const user = msg.user.id
+    const user = msg.chat.id
     const cmdInfo = msg.text.match(regex)?.groups
 
     const command = commands[cmdInfo?.name]
