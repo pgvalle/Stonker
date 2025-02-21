@@ -3,7 +3,8 @@ const ssock = require('stocksocket') // https://github.com/gregtuc/StockSocket
 const sql = require('sqlite3')
 
 const TELEGRAM_BOT_TK = '8075711316:AAGaVXIGrthKWKsmnbtEAa4ocdLnw-qYLRY'
-const botConfig = {
+const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE);
+const bot = new TelegramBot(TELEGRAM_BOT_TK, {
     polling: true,
     request: {
         agentOptions: {
@@ -11,14 +12,15 @@ const botConfig = {
             family: 4
         }
     }
-}
-const bot = new TelegramBot(TELEGRAM_BOT_TK, botConfig)
-const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE);
+})
 
 // utils
 
 function sendMessage(user, msg) {
-    bot.sendMessage(user, msg, { parse_mode: 'Markdown' })
+    bot.sendMessage(user, msg, {
+        parse_mode: 'Markdown',
+        protect_content: true
+    })
 }
 
 // creating tables
@@ -46,7 +48,7 @@ function updateStock(info) {
     const price = info.price
     const action = `INSERT OR REPLACE INTO stock (MIC, price) VALUES ('${MIC}', ${price})`
 
-    db.exec(action, (_) => {
+    db.exec(action, async (_) => {
         // Stock price changes may affect investments
         updateInvestments(MIC, price)
     })
@@ -68,12 +70,10 @@ function updateInvestments(stockMIC, stockPrice) {
         WHERE stockMIC = '${stockMIC}' AND ${newValue} NOT BETWEEN lowValue AND highValue
         RETURNING *`
     
-    db.all(action, (_, affectedInvestments) => {
+    db.all(action, async (_, affectedInvestments) => {
         // Users should be notified of their affected investments
         for (const ai of affectedInvestments) {
-            if (ai.lowValue === ai.value || ai.highValue === ai.value) {
-                sendMessage(ai.user, `asdfasdf`)
-            } else {
+            if (ai.lowValue !== ai.value && ai.highValue !== ai.value) {
                 const msg = formatInvestment(ai, stockPrice)
                 sendMessage(ai.user, msg)
             }
@@ -102,7 +102,7 @@ function refreshStockListeners() {
     ssock.removeAllTickers() // Trash all listeners
     
     // If a listener had an associated entry in stock table, then it was valid. Re-add it.
-    db.all(`SELECT * FROM stock`, (_, stocks) => {
+    db.all(`SELECT * FROM stock`, async (_, stocks) => {
         for (const s of stocks) {
             ssock.addTicker(s.MIC, updateStock)
         }
@@ -116,7 +116,6 @@ setInterval(refreshStockListeners, 30000)
 
 // bot commands
 
-// TODO: fix me
 function invest(user, args) {
     if (!args || args.length !== 3) {
         sendMessage(user, 'Wrong command syntax.')
@@ -133,7 +132,7 @@ function invest(user, args) {
         FROM stock WHERE stock.MIC = '${stockMIC}'
         RETURNING rowid`
     
-    db.get(action, (_, result) => {
+    db.get(action, async (_, result) => {
         if (result) {
             sendMessage(user, `${stockMIC} investment added.`)
         } else {
@@ -154,7 +153,7 @@ function dinvest(user, args) {
         reply = 'Now those investments are gone.'
     }
 
-    db.exec(action, (_) => {
+    db.exec(action, async (_) => {
         sendMessage(user, reply)
     })
 }
@@ -173,9 +172,9 @@ function linvest(user, args) {
         reply = 'Here are the investments you asked'
     }
 
-    db.all(action, (_, joinInvStock) => {
-        for (const jis of joinInvStock) {
-            reply += formatInvestment(jis, jis.price)
+    db.all(action, async (_, joinResult) => {
+        for (const row of joinResult) {
+            reply += formatInvestment(row, row.price)
         }
 
         sendMessage(user, reply)
@@ -193,7 +192,7 @@ function stock(user, args) {
         reply = 'Stocks you wanted that I am aware of```\n'
     }
 
-    db.all(action, (_, stocks) => {
+    db.all(action, async (_, stocks) => {
         for (const s of stocks) {
             const formatedPrice = s.price.toFixed(2)
             reply += `${s.MIC} : $${formatedPrice}\n`
