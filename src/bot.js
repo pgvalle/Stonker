@@ -173,11 +173,11 @@ function linvest(user, args) {
         reply = 'Here are the investments you asked'
     }
 
-    db.all(action, (_, joinInvestmentStock) => {
-        for (const jis of joinInvestmentStock) {
+    db.all(action, (_, joinInvStock) => {
+        for (const jis of joinInvStock) {
             reply += formatInvestment(jis, jis.price)
         }
-        const user = joinInvestmentStock[0].user
+
         sendMessage(user, reply)
     })
 }
