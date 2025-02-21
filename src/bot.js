@@ -16,7 +16,7 @@ const bot = new TelegramBot(TELEGRAM_BOT_TK, {
 
 // utils
 
-function sendMessage(user, msg) {
+async function sendMessage(user, msg) {
     bot.sendMessage(user, msg, {
         parse_mode: 'Markdown',
         protect_content: true
@@ -43,19 +43,19 @@ db.exec(`
 )
 
 // Add a new entry in stock table. If the entry already exists, then update the price.
-function updateStock(info) {
+async function updateStock(info) {
     const MIC = info.id
     const price = info.price
     const action = `INSERT OR REPLACE INTO stock (MIC, price) VALUES ('${MIC}', ${price})`
 
     db.exec(action, async (_) => {
         // Stock price changes may affect investments
-        updateInvestments(MIC, price)
+        await updateInvestments(MIC, price)
     })
 }
 
 // update all investments on a stock with MIC=stockMIC based on its new price
-function updateInvestments(stockMIC, stockPrice) {
+async function updateInvestments(stockMIC, stockPrice) {
     const newValue = `(${stockPrice} / refStockPrice) * value`
     const action = `
         UPDATE investment SET
@@ -74,27 +74,44 @@ function updateInvestments(stockMIC, stockPrice) {
         // Users should be notified of their affected investments
         for (const ai of affectedInvestments) {
             if (ai.lowValue !== ai.value && ai.highValue !== ai.value) {
-                const msg = formatInvestment(ai, stockPrice)
-                sendMessage(ai.user, msg)
+                const msg = fmtInvestment(ai, stockPrice)
+                await sendMessage(ai.user, msg)
             }
         }
     })
 }
 
 // Formatted information of investment i
-function formatInvestment(i, stockPrice) {
-    const formatedRefStockPrice = i.refStockPrice.toFixed(2)
-    const formatedNewStockPrice = stockPrice.toFixed(2)
-    const formatedValue = i.value.toFixed(2)
+function fmtInvestment(i, stockPrice) {
+    const newValue = i.value * (stockPrice / i.refStockPrice)
+    const diff = newValue - i.value
+    const param = i.highValue - i.lowValue
 
-    const diff = i.value * (stockPrice / i.refStockPrice - 1)
-    const formatedDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
+    const fmtRefStockPrice = i.refStockPrice.toFixed(2)
+    const fmtNewStockPrice = stockPrice.toFixed(2)
+    const fmtValue = i.value.toFixed(2)
+    const fmtDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
+    const fmtNewValue = newValue.toFixed(2)
+    const fmtParam = param.toFixed(2)
+
+    const fmtLow = i.lowValue.toFixed(2)
+    const fmtHigh = i.highValue.toFixed(2)
+    var notifyWhen = `< $${fmtLow} or > $${fmtHigh}`
+
+    if (i.value === i.lowValue) {
+        notifyWhen = `> $${fmtHigh}`
+    } else if (i.value === i.highValue) {
+        notifyWhen = `< $${fmtLow}`
+    }
     
-    return '```\n' + `${i.stockMIC}\n`
-         + ` price when invested: $${formatedRefStockPrice}\n`
-         + ` latest price: $${formatedNewStockPrice}\n`
-         + ` investment: $${formatedValue}\n`
-         + ` investment diff: $${formatedDiff}` + '```\n'
+    return `*${i.stockMIC}*` + '```\n'
+         + `price when invested: $${fmtRefStockPrice}\n`
+         + `last known price: $${fmtNewStockPrice}\n`
+         + `investment: $${fmtValue}\n`
+         + `diff: $${fmtDiff}\n`
+         + `investment+diff: $${fmtNewValue}\n`
+         + `variation watched: $${fmtParam}\n`
+         + `notity when: ${notifyWhen}` + '```\n'
 }
 
 // Users may watch invalid stocks. That ends up adding invalid listeners.
@@ -116,9 +133,9 @@ setInterval(refreshStockListeners, 30000)
 
 // bot commands
 
-function invest(user, args) {
+async function invest(user, args) {
     if (!args || args.length !== 3) {
-        sendMessage(user, 'Wrong command syntax.')
+        await sendMessage(user, 'Wrong command syntax.')
         return
     }
 
@@ -134,15 +151,15 @@ function invest(user, args) {
     
     db.get(action, async (_, result) => {
         if (result) {
-            sendMessage(user, `${stockMIC} investment added.`)
+            await sendMessage(user, `You investment in ${stockMIC} stocks.`)
         } else {
             ssock.addTicker(stockMIC, updateStock)
-            sendMessage(user, `${stockMIC} not found. Try again later.`)
+            await sendMessage(user, `${stockMIC} not found. Try again later.`)
         }
     })
 }
 
-function dinvest(user, args) {
+async function dinvest(user, args) {
     var action = `DELETE FROM investment WHERE user = ${user}`
     var reply = 'Now all your investments are gone.'
 
@@ -154,14 +171,14 @@ function dinvest(user, args) {
     }
 
     db.exec(action, async (_) => {
-        sendMessage(user, reply)
+        await sendMessage(user, reply)
     })
 }
 
-function linvest(user, args) {
+async function linvest(user, args) {
     var action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
                   ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
-    var reply = 'Here are all your investments'
+    var reply = 'Here are all your investments\n'
 
     // list of investments to look for
     if (args) {
@@ -169,19 +186,19 @@ function linvest(user, args) {
         action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
                   ON investment.stockMIC = stock.MIC
                   WHERE investment.user = ${user} AND stock.MIC IN ${stockMICs}`
-        reply = 'Here are the investments you asked'
+        reply = 'Here are the investments you asked\n'
     }
 
     db.all(action, async (_, joinResult) => {
         for (const row of joinResult) {
-            reply += formatInvestment(row, row.price)
+            reply += fmtInvestment(row, row.price)
         }
 
-        sendMessage(user, reply)
+        await sendMessage(user, reply)
     })
 }
 
-function stock(user, args) {
+async function stock(user, args) {
     var action = `SELECT * FROM stock`
     var reply = 'All stocks that I am aware of```\n'
 
@@ -194,23 +211,23 @@ function stock(user, args) {
 
     db.all(action, async (_, stocks) => {
         for (const s of stocks) {
-            const formatedPrice = s.price.toFixed(2)
-            reply += `${s.MIC} : $${formatedPrice}\n`
+            const fmtPrice = s.price.toFixed(2)
+            reply += `${s.MIC} : $${fmtPrice}\n`
         }
 
-        sendMessage(user, reply + '```')
+        await sendMessage(user, reply + '```')
     })
 }
 
-function help(user, args) {
+async function help(user, args) {
     if (args) {
-        sendMessage(user, 'Wrong command syntax.')
+        await sendMessage(user, 'Wrong command syntax.')
         return
     }
 
     const separator = '\n '
     const cmdsFmt = Object.keys(commands).join(separator)
-    sendMessage(user, `Commands:${separator}${cmdsFmt}`)
+    await sendMessage(user, `Commands:${separator}${cmdsFmt}`)
 }
 
 var commands = {
@@ -227,14 +244,14 @@ bot.on('message', async (msg) => {
     const command = commands[cmdInfo?.name]
     if (cmdInfo && command) {
         const args = cmdInfo.args?.split(' ')
-        command(user, args)
+        await command(user, args)
         return
     }
     
     if (cmdInfo) {
-        sendMessage(user, 'what???')
+        await await sendMessage(user, 'what???')
         return
     }
 
-    sendMessage(user, msg.text)
+    await await sendMessage(user, msg.text)
 });
