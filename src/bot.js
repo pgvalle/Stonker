@@ -90,7 +90,7 @@ function formatInvestment(i, stockPrice) {
     const diff = i.value * (stockPrice / i.refStockPrice - 1)
     const formatedDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
     
-    return '```\n' + `${i.stockMIC} stocks\n`
+    return '```\n' + `${i.stockMIC}\n`
          + ` price when invested: $${formatedRefStockPrice}\n`
          + ` latest price: $${formatedNewStockPrice}\n`
          + ` investment: $${formatedValue}\n`
