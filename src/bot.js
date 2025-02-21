@@ -16,12 +16,12 @@ db.exec(`
     
     CREATE TABLE IF NOT EXISTS investment (
         stockId       VARCHAR(8) NOT NULL,
-        chat          INTEGER    NOT NULL,
+        user          INTEGER    NOT NULL,
         refStockPrice REAL       NOT NULL,
         value         REAL       NOT NULL,
         lowValue      REAL       NOT NULL,
         highValue     REAL       NOT NULL,
-        PRIMARY KEY (stockId, chat)
+        PRIMARY KEY (stockId, user)
     );`
 )
 
@@ -56,24 +56,23 @@ function updateInvestments(stockId, newStockPrice) {
     db.all(action, (_, affectedInvestments) => {
         // Users should be notified of their affected investments
         for (const ai of affectedInvestments) {
-            notifyUser(ai, newStockPrice)
+            const msg = formatInvestment(ai, newStockPrice)
+            bot.sendMessage(ai.user, msg)
         }
     })
 }
 
-// Notify users of their investments affected by the new stock price
-function notifyUser(investment, newStockPrice) {
+// Information message of investments
+function formatInvestment(investment, newStockPrice) {
     const { stockId, refStockPrice, investedValue } = investment
     const change = newStockPrice / refStockPrice - 1
     const gainLoss = (investedValue * change)
 
-    const msg = `change in ${stockId} stocks\n`
-              + `referencePrice=$${refStockPrice.toPrecision(2)}\n`
-              + `price=$${newStockPrice.toPrecision(2)}\n`
-              + `invested=$${investedValue.toPrecision(2)}\n`
-              + `gain/loss=$${gainLoss.toPrecision(2)}\n`
-
-    bot.sendMessage(w.chat, msg)
+    return `change in ${stockId} stocks\n`
+         + `referencePrice=$${refStockPrice.toPrecision(2)}\n`
+         + `price=$${newStockPrice.toPrecision(2)}\n`
+         + `invested=$${investedValue.toPrecision(2)}\n`
+         + `gain/loss=$${gainLoss.toPrecision(2)}\n`
 }
 
 // Users may watch invalid stocks. That ends up adding invalid listeners.
@@ -96,9 +95,9 @@ setInterval(refreshStockListeners, 30000)
 // bot commands
 
 // TODO: fix me
-function watch(chat, args) {
+function invest(user, args) {
     if (!args || args.length !== 4) {
-        bot.sendMessage(chat, 'Wrong command syntax.')
+        bot.sendMessage(user, 'Wrong command syntax.')
         return
     }
 
@@ -106,12 +105,12 @@ function watch(chat, args) {
     // changeRange = Math.abs(parseFloat(changeRange))
 
     // if (isNaN(changeRange)) {
-    //     bot.sendMessage(chat, `${args[1]} is not a number bro.`)
+    //     bot.sendMessage(user, `${args[1]} is not a number bro.`)
     //     return
     // }
 
     // if (changeRange < 0.0001) {
-    //     bot.sendMessage(chat, `That number is too small bro`)
+    //     bot.sendMessage(user, `That number is too small bro`)
     //     return
     // }
     
@@ -120,7 +119,7 @@ function watch(chat, args) {
 
     db.get(action, (_, row) => {
         if (!row) {
-            bot.sendMessage(chat, `${stockId} not found. Try again later.`)
+            bot.sendMessage(user, `${stockId} not found. Try again later.`)
             ssock.addTicker(stockId, updateStock)
             return
         }
@@ -128,55 +127,55 @@ function watch(chat, args) {
         console.log(1-changeRange)
         console.log(1+changeRange)
        const action = `
-               INSERT OR REPLACE INTO watcher (stockId, chat,
+               INSERT OR REPLACE INTO investment (stockId, user,
                     refStockPrice, investedValue, lowValue, highValue)
-                VALUES ('${stockI}', ${chat}, ${row.price},
+                VALUES ('${stockI}', ${user}, ${row.price},
                     ${investedVale}, ${1-changeRange}, ${1+changeRange})`
         db.exec(action, (_) => {
-            bot.sendMessage(chat, `${stockId} watcher added.`)
+            bot.sendMessage(user, `${stockId} investment added.`)
         })
     })
 }
 
-function forget(chat, args) {
-    var action = `DELETE FROM watcher WHERE chat = ${chat}`
-    var reply = 'All watchers deleted.'
+function forget(user, args) {
+    var action = `DELETE FROM investment WHERE user = ${user}`
+    var reply = 'Now all your investments are gone.'
     
     // no args mean delete all
     if (args) {
-        const watchers = `('` + args.join(`', '`).toUpperCase() + `')`
-        action = `DELETE FROM watcher WHERE stockId IN ${watchers} AND chat = ${chat}`
-        reply = 'Deleted specified watchers.'
+        const investments = `('` + args.join(`', '`).toUpperCase() + `')`
+        action = `DELETE FROM investment WHERE stockId IN ${investments} AND user = ${user}`
+        reply = 'Now those investments are gone.'
     }
 
     db.exec(action, (_) => {
-        bot.sendMessage(chat, reply)
+        bot.sendMessage(user, reply)
     })
 }
 
-function info(chat, args) {
+function info(user, args) {
     if (!args || args.length !== 1) {
-        bot.sendMessage(chat, 'Wrong command syntax.')
+        bot.sendMessage(user, 'Wrong command syntax.')
         return
     }
 
-    bot.sendMessage(chat, 'Comming soon...')
+    bot.sendMessage(user, 'Comming soon...')
 }
 
 // TODO: fix me
-function list(chat, args) {
+function list(user, args) {
     if (args) {
-        bot.sendMessage(chat, 'Wrong command syntax.')
+        bot.sendMessage(user, 'Wrong command syntax.')
         return
     }
 
-    const action = `SELECT * FROM watcher WHERE chat = ${chat}`
+    const action = `SELECT * FROM investment WHERE user = ${user}`
 
-    db.all(action, (_, watchers) => {
+    db.all(action, (_, investments) => {
         const msgOpts = { parse_mode: 'MarkdownV2' }
-        var msg = 'Here are all your watchers\n```'
+        var msg = 'Here are all your investments\n```'
 
-        for (const w of watchers) {
+        for (const w of investments) {
             msg += `${w.stockId}:\n`
             msg += ` ref=${w.refStockPrice}\n`
             msg += ` invested=${w.investedalue}\n`
@@ -184,13 +183,13 @@ function list(chat, args) {
             msg += ` highValue=${100 * (w.ighValue - 1)}%\n`
         }
 
-        bot.sendMessage(chat, msg + '```\n', msgOpts)
+        bot.sendMessage(user, msg + '```\n', msgOpts)
     })
 }
 
-function stock(chat, args) {
+function stock(user, args) {
     if (!args || args.length !== 1) {
-        bot.sendMessage(chat, 'Wrong command syntax.')
+        bot.sendMessage(user, 'Wrong command syntax.')
         return
     }
 
@@ -198,43 +197,43 @@ function stock(chat, args) {
     const action = `SELECT * FROM stock WHERE id = '${stockId}'`
 
     db.get(action, (_, s) => {
-        bot.sendMessage(chat, `id: ${s.id}\nprice: ${s.price}`)
+        bot.sendMessage(user, `id: ${s.id}\nprice: ${s.price}`)
     })
 }
 
-function help(chat, args) {
+function help(user, args) {
     if (args) {
-        bot.sendMessage(chat, 'Wrong command syntax.')
+        bot.sendMessage(user, 'Wrong command syntax.')
         return
     }
 
     const separator = '\n - '
     const cmdsFmt = Object.keys(commands).join(separator)
-    bot.sendMessage(chat, `Commands:${separator}${cmdsFmt}`)
+    bot.sendMessage(user, `Commands:${separator}${cmdsFmt}`)
 }
 
 var commands = {
-    watch, forget, help, list, stock
+    invest, forget, help, list, stock
 }
 
 // configure bot
 
 bot.on('message', (msg) => {
     const regex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-    const chat = msg.chat.id
+    const user = msg.user.id
     const cmdInfo = msg.text.match(regex)?.groups
 
     const command = commands[cmdInfo?.name]
     if (cmdInfo && command) {
         const args = cmdInfo.args?.split(' ')
-        command(chat, args)
+        command(user, args)
         return
     }
     
     if (cmdInfo) {
-        bot.sendMessage(chat, 'what???')
+        bot.sendMessage(user, 'what???')
         return
     }
 
-    bot.sendMessage(chat, msg.text)
+    bot.sendMessage(user, msg.text)
 });
