@@ -16,35 +16,35 @@ function sendMessage(user, msg) {
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS stock (
-        id    VARCHAR(8) NOT NULL PRIMARY KEY,
+        MIC   VARCHAR(4) NOT NULL PRIMARY KEY,
         price REAL       NOT NULL
     );
     
     CREATE TABLE IF NOT EXISTS investment (
-        stockId       VARCHAR(8) NOT NULL,
+        stockMIC      VARCHAR(4) NOT NULL,
         user          INTEGER    NOT NULL,
         refStockPrice REAL       NOT NULL,
         value         REAL       NOT NULL,
         lowValue      REAL       NOT NULL,
         highValue     REAL       NOT NULL,
-        PRIMARY KEY (stockId, user)
+        PRIMARY KEY (stockMIC, user)
     );`
 )
 
 // Add a new entry in stock table. If the entry already exists, then update the price.
 function updateStock(info) {
-    const id = info.id
+    const MIC = info.MIC
     const newPrice = info.price
-    const action = `INSERT OR REPLACE INTO stock (id, price) VALUES ('${id}', ${newPrice})`
+    const action = `INSERT OR REPLACE INTO stock (MIC, price) VALUES ('${MIC}', ${newPrice})`
 
     db.exec(action, (_) => {
         // Stock price changes may affect investments
-        updateInvestments(id, newPrice)
+        updateInvestments(MIC, newPrice)
     })
 }
 
-// update all investments on a stock with id=stockId based on its new price
-function updateInvestments(stockId, newStockPrice) {
+// update all investments on a stock with MIC=stockMIC based on its new price
+function updateInvestments(stockMIC, newStockPrice) {
     const newValue = `(${newStockPrice} / refStockPrice) * value`
     const action = `
         UPDATE investment SET
@@ -56,7 +56,7 @@ function updateInvestments(stockId, newStockPrice) {
             WHEN ${newValue} > highValue THEN 2 * highValue - lowValue
             WHEN ${newValue} < lowValue  THEN lowValue
         END
-        WHERE stockId = '${stockId}' AND ${newValue} NOT BETWEEN lowValue AND highValue
+        WHERE stockMIC = '${stockMIC}' AND ${newValue} NOT BETWEEN lowValue AND highValue
         RETURNING *`
     
     db.all(action, (_, affectedInvestments) => {
@@ -77,7 +77,7 @@ function formatInvestment(i, newStockPrice) {
     const change = (newStockPrice / i.refStockPrice - 1)
     const formatedDiff = (change >= 0 ? '+' : '-') + (i.value * change).toPrecision(2)
     
-    return `change in ${i.stockId} stocks\n`
+    return `change in ${i.stockMIC} stocks\n`
          + `price when you invested: $${formatedRefStockPrice}\n`
          + `most recent price: $${formatedNewStockPrice}\n`
          + `investment: $${formatedValue}\n`
@@ -89,9 +89,9 @@ function refreshStockListeners() {
     ssock.removeAllTickers() // Trash all listeners
     
     // If a listener had an associated entry in stock table, then it was valid. Re-add it.
-    db.all(`SELECT id FROM stock`, (_, stocks) => {
+    db.all(`SELECT * FROM stock`, (_, stocks) => {
         for (const s of stocks) {
-            ssock.addTicker(s.id, updateStock)
+            ssock.addTicker(s.MIC, updateStock)
         }
     })
 }
@@ -123,25 +123,25 @@ function invest(user, args) {
     //     return
     // }
     
-    const stockId = args[0].toUpperCase()
-    const action = `SELECT * FROM stock WHERE id = '${stockId}'`
+    const stockMIC = args[0].toUpperCase()
+    const action = `SELECT * FROM stock WHERE MIC = '${stockMIC}'`
 
     db.get(action, (_, row) => {
         if (!row) {
-            sendMessage(user, `${stockId} not found. Try again later.`)
-            ssock.addTicker(stockId, updateStock)
+            sendMessage(user, `${stockMIC} not found. Try again later.`)
+            ssock.addTicker(stockMIC, updateStock)
             return
         }
 
         console.log(1-changeRange)
         console.log(1+changeRange)
        const action = `
-               INSERT OR REPLACE INTO investment (stockId, user,
+               INSERT OR REPLACE INTO investment (stockMIC, user,
                     refStockPrice, value, lowValue, highValue)
                 VALUES ('${stockI}', ${user}, ${row.price},
                     ${investedVale}, ${1-changeRange}, ${1+changeRange})`
         db.exec(action, (_) => {
-            sendMessage(user, `${stockId} investment added.`)
+            sendMessage(user, `${stockMIC} investment added.`)
         })
     })
 }
@@ -149,11 +149,11 @@ function invest(user, args) {
 function forget(user, args) {
     var action = `DELETE FROM investment WHERE user = ${user}`
     var reply = 'Now all your investments are gone.'
-    
+
     // no args mean delete all
     if (args) {
         const investments = `('` + args.join(`', '`).toUpperCase() + `')`
-        action = `DELETE FROM investment WHERE stockId IN ${investments} AND user = ${user}`
+        action = `DELETE FROM investment WHERE stockMIC IN ${investments} AND user = ${user}`
         reply = 'Now those investments are gone.'
     }
 
@@ -169,13 +169,14 @@ function list(user, args) {
     //     return
     // }
 
-    // const action = `SELECT * FROM investment WHERE user = ${user}`
+    // const action = `SELECT investment.*, stock.price FROM investment LEFT INNER JOIN stock
+    //                 ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
 
     // db.all(action, (_, investments) => {
     //     var msg = 'Here are all your investments\n```'
 
     //     for (const w of investments) {
-    //         msg += `${w.stockId}:\n`
+    //         msg += `${w.stockMIC}:\n`
     //         msg += ` ref=${w.refStockPrice}\n`
     //         msg += ` invested=${w.investedalue}\n`
     //         msg += ` lowValue=${w.lowValue}%\n`
@@ -188,18 +189,20 @@ function list(user, args) {
 
 function stock(user, args) {
     var action = `SELECT * FROM stock`
-    var reply = 'All stocks that I am aware of'
+    var reply = 'All stocks that I am aware of\n```'
 
+    // existing arguments means list those specified
     if (args) {
-        const stockIds = `('` + args.join(`, `) + `')`
-        action = `SELECT * FROM stock WHERE id IN ${stockIds}`
-        reply = 'Stocks you wanted that I am aware of'
+        const stockMICs = `('` + args.join(`, `) + `')`
+        action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
+        reply = 'Stocks you wanted that I am aware of\n```'
     }
 
     db.all(action, (_, stocks) => {
         for (const s of stocks) {
+            const formatedMIC = s.MIC.padEnd(4, ' ')
             const formatedPrice = s.price.toPrecision(2)
-            reply += `${s.id} stock: $${formatedPrice}\n`
+            reply += `${formatedMIC} : $${formatedPrice}\n`
         }
 
         sendMessage(user, reply + '```')
