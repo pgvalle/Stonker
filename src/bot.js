@@ -10,100 +10,99 @@ const db = new sql.Database('./stocks.db', sql.OPEN_READWRITE | sql.OPEN_CREATE)
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS stock (
-        stockId     VARCHAR(8) NOT NULL PRIMARY KEY,
-        price       REAL       NOT NULL
-    )`
-)
-
-db.exec(`CREATE TABLE IF NOT EXISTS watcher (
-        stockId        VARCHAR(8) NOT NULL,
-        chat           INTEGER    NOT NULL,
-        referencePrice REAL       NOT NULL,
-        investedValue  REAL       NOT NULL,
-        low            REAL       NOT NULL,
-        high           REAL       NOT NULL,
+        id    VARCHAR(8) NOT NULL PRIMARY KEY,
+        price REAL       NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS investment (
+        stockId       VARCHAR(8) NOT NULL,
+        chat          INTEGER    NOT NULL,
+        refStockPrice REAL       NOT NULL,
+        value         REAL       NOT NULL,
+        lowValue      REAL       NOT NULL,
+        highValue     REAL       NOT NULL,
         PRIMARY KEY (stockId, chat)
-    )`
+    );`
 )
 
-// stock price update callback
-
+// Add a new entry in stock table. If the entry already exists, then update the price.
 function updateStock(info) {
-    const stockId = info.id
-    const newStockPrice = info.price
-    const action = `INSERT OR REPLACE INTO stock (stockId, price)
-                    VALUES ('${stockId}', ${newStockPrice})`
+    const id = info.id
+    const newPrice = info.price
+    const action = `INSERT OR REPLACE INTO stock (id, price) VALUES ('${id}', ${newPrice})`
 
     db.exec(action, (_) => {
-        updateStockWatchers(stockId, newStockPrice)
+        // Stock price changes may affect investments
+        updateInvestments(id, newPrice)
     })
 }
 
-// update respective stock watchers
-
-function updateStockWatchers(stockId, newStockPrice) {
+// update all investments on a stock with id=stockId based on its new price
+function updateInvestments(stockId, newStockPrice) {
+    const newValue = `(${newStockPrice} / refStockPrice) * value`
     const action = `
-        UPDATE watcher SET
-        low = CASE
-            WHEN ${newStockPrice} / referencePrice > high THEN high
-            WHEN ${newStockPrice} / referencePrice < low  THEN 2 * low - high
+        UPDATE investment SET
+        lowValue = CASE
+            WHEN ${newValue} > highValue THEN highValue
+            WHEN ${newValue} < lowValue  THEN 2 * lowValue - highValue
         END,
-        high = CASE
-            WHEN ${newStockPrice} / referencePrice > high THEN 2 * high - low
-            WHEN ${newStockPrice} / referencePrice < low  THEN low
+        highValue = CASE
+            WHEN ${newValue} > highValue THEN 2 * highValue - lowValue
+            WHEN ${newValue} < lowValue  THEN lowValue
         END
-        WHERE stockId = '${stockId}' AND ${newStockPrice} / referencePrice NOT BETWEEN low AND high
+        WHERE stockId = '${stockId}' AND ${newValue} NOT BETWEEN lowValue AND highValue
         RETURNING *`
     
-    db.all(action, (_, watchers) => {
-        notifyUsers(watchers, newStockPrice)
-    })
-}
-
-// tell users what stocks changed according to watch parameters and current price
-
-function notifyUsers(watchers, newStockPrice) {
-    for (const w of watchers) {
-        const rel = newStockPrice / w.referencePrice - 1
-
-        const msg = `change in ${w.stockId} stocks\n`
-                  + `rel=${100 * rel}%\n`
-                  + `earn/loss=${w.investedValue * rel}\n`
-                  + `ref=${w.referencePrice}\n`
-                  + `cur=${newStockPrice}`
-
-        const ms1 = `change in amd`
-
-        bot.sendMessage(w.chat, msg)
-    }
-}
-
-// setup stock monitoring for stocks already saved in database
-// also keep sockets clean of invalid stockIds
-
-function refreshSSockets() {
-    ssock.removeAllTickers()
-    
-    db.all(`SELECT stockId FROM stock`, (_, stocks) => {
-        for (const s of stocks) {
-            ssock.addTicker(s.stockId, updateStock)
+    db.all(action, (_, affectedInvestments) => {
+        // Users should be notified of their affected investments
+        for (const ai of affectedInvestments) {
+            notifyUser(ai, newStockPrice)
         }
     })
 }
 
-refreshSSockets()
-setInterval(refreshSSockets, 30000)
+// Notify users of their investments affected by the new stock price
+function notifyUser(investment, newStockPrice) {
+    const { stockId, refStockPrice, investedValue } = investment
+    const change = newStockPrice / refStockPrice - 1
+    const gainLoss = (investedValue * change)
+
+    const msg = `change in ${stockId} stocks\n`
+              + `referencePrice=$${refStockPrice.toPrecision(2)}\n`
+              + `price=$${newStockPrice.toPrecision(2)}\n`
+              + `invested=$${investedValue.toPrecision(2)}\n`
+              + `gain/loss=$${gainLoss.toPrecision(2)}\n`
+
+    bot.sendMessage(w.chat, msg)
+}
+
+// Users may watch invalid stocks. That ends up adding invalid listeners.
+function refreshStockListeners() {
+    ssock.removeAllTickers() // Trash all listeners
+    
+    // If a listener had an associated entry in stock table, then it was valid. Re-add it.
+    db.all(`SELECT id FROM stock`, (_, stocks) => {
+        for (const s of stocks) {
+            ssock.addTicker(s.id, updateStock)
+        }
+    })
+}
+
+// add listeners on startup
+refreshStockListeners()
+// refresh listeners every 30 seconds
+setInterval(refreshStockListeners, 30000)
 
 // bot commands
 
+// TODO: fix me
 function watch(chat, args) {
-    if (!args || args.length !== 3) {
+    if (!args || args.length !== 4) {
         bot.sendMessage(chat, 'Wrong command syntax.')
         return
     }
 
-    const changeRange = Number(args[1])
-    const valueInvested = Number(args[2])
+    const investedValue = Number(args[1])
     // changeRange = Math.abs(parseFloat(changeRange))
 
     // if (isNaN(changeRange)) {
@@ -117,7 +116,7 @@ function watch(chat, args) {
     // }
     
     const stockId = args[0].toUpperCase()
-    const action = `SELECT * FROM stock WHERE stockId = '${stockId}'`
+    const action = `SELECT * FROM stock WHERE id = '${stockId}'`
 
     db.get(action, (_, row) => {
         if (!row) {
@@ -128,12 +127,11 @@ function watch(chat, args) {
 
         console.log(1-changeRange)
         console.log(1+changeRange)
-        const action = `
-                INSERT OR REPLACE INTO watcher (stockId, chat,
-                    referencePrice, investedValue, low, high)
-                VALUES ('${stockId}', ${chat}, ${row.price},
-                    ${valueInvested}, ${1-changeRange}, ${1+changeRange})`
-
+       const action = `
+               INSERT OR REPLACE INTO watcher (stockId, chat,
+                    refStockPrice, investedValue, lowValue, highValue)
+                VALUES ('${stockI}', ${chat}, ${row.price},
+                    ${investedVale}, ${1-changeRange}, ${1+changeRange})`
         db.exec(action, (_) => {
             bot.sendMessage(chat, `${stockId} watcher added.`)
         })
@@ -165,6 +163,7 @@ function info(chat, args) {
     bot.sendMessage(chat, 'Comming soon...')
 }
 
+// TODO: fix me
 function list(chat, args) {
     if (args) {
         bot.sendMessage(chat, 'Wrong command syntax.')
@@ -179,10 +178,10 @@ function list(chat, args) {
 
         for (const w of watchers) {
             msg += `${w.stockId}:\n`
-            msg += ` ref=${w.referencePrice}\n`
-            msg += ` invested=${w.investedValue}\n`
-            msg += ` low=${100 * (w.low - 1)}%\n`
-            msg += ` high=${100 * (w.high - 1)}%\n`
+            msg += ` ref=${w.refStockPrice}\n`
+            msg += ` invested=${w.investedalue}\n`
+            msg += ` lowValue=${100 * (w.lwValue - 1)}%\n`
+            msg += ` highValue=${100 * (w.ighValue - 1)}%\n`
         }
 
         bot.sendMessage(chat, msg + '```\n', msgOpts)
@@ -196,10 +195,10 @@ function stock(chat, args) {
     }
 
     const stockId = args[0].toUpperCase()
-    const action = `SELECT * FROM stock WHERE stockId = '${stockId}'`
+    const action = `SELECT * FROM stock WHERE id = '${stockId}'`
 
     db.get(action, (_, s) => {
-        bot.sendMessage(chat, `id: ${s.stockId}\nprice: ${s.price}`)
+        bot.sendMessage(chat, `id: ${s.id}\nprice: ${s.price}`)
     })
 }
 
