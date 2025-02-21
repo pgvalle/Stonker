@@ -34,18 +34,18 @@ db.exec(`
 // Add a new entry in stock table. If the entry already exists, then update the price.
 function updateStock(info) {
     const MIC = info.id
-    const newPrice = info.price
-    const action = `INSERT OR REPLACE INTO stock (MIC, price) VALUES ('${MIC}', ${newPrice})`
+    const price = info.price
+    const action = `INSERT OR REPLACE INTO stock (MIC, price) VALUES ('${MIC}', ${price})`
 
     db.exec(action, (_) => {
         // Stock price changes may affect investments
-        updateInvestments(MIC, newPrice)
+        updateInvestments(MIC, price)
     })
 }
 
 // update all investments on a stock with MIC=stockMIC based on its new price
-function updateInvestments(stockMIC, newStockPrice) {
-    const newValue = `(${newStockPrice} / refStockPrice) * value`
+function updateInvestments(stockMIC, stockPrice) {
+    const newValue = `(${stockPrice} / refStockPrice) * value`
     const action = `
         UPDATE investment SET
         lowValue = CASE
@@ -62,19 +62,19 @@ function updateInvestments(stockMIC, newStockPrice) {
     db.all(action, (_, affectedInvestments) => {
         // Users should be notified of their affected investments
         for (const ai of affectedInvestments) {
-            const msg = formatInvestment(ai, newStockPrice)
+            const msg = formatInvestment(ai, stockPrice)
             sendMessage(ai.user, msg)
         }
     })
 }
 
 // Formatted information of investment i
-function formatInvestment(i, newStockPrice) {
+function formatInvestment(i, stockPrice) {
     const formatedRefStockPrice = i.refStockPrice.toFixed(2)
-    const formatedNewStockPrice = newStockPrice.toFixed(2)
+    const formatedNewStockPrice = stockPrice.toFixed(2)
     const formatedValue = i.value.toFixed(2)
 
-    const diff = i.value * (newStockPrice / i.refStockPrice - 1)
+    const diff = i.value * (stockPrice / i.refStockPrice - 1)
     const formatedDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
     
     return `change in ${i.stockMIC} stocks\n`
