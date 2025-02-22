@@ -41,7 +41,7 @@ async function dinvest(user, args) {
     var reply = 'Now all your investments are gone.'
 
     // delete specified investments
-    if (args.length === 0) {
+    if (args.length > 0) {
         const investments = `('` + args.join(`', '`).toUpperCase() + `')`
         action = `DELETE FROM investment WHERE stockMIC IN ${investments} AND user = ${user}`
         reply = 'Now those investments are gone.'
