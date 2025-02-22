@@ -9,7 +9,6 @@
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
     "sqlite3": "^5.1.7",
-    "stocksocket": "^2.1.2",
-    "yahoo-finance2": "^2.13.3"
+    "stocksocket": "^2.1.2"
   }
 }
