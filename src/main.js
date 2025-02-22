@@ -30,7 +30,7 @@ const PLAIN_MSG_REGEX = /^(?!\/\S).+/s
 // Make the bot respond to commands
 bot.onText(CMD_REGEX, async (msg, match) => {
     const user = msg.chat.id
-    const name = match.groups.name
+    const name = match.groups.name.toLocaleLowerCase()
     const args = match.groups.args?.split(' ') || []
     const command = commands[name]
     
