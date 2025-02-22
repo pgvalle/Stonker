@@ -1,5 +1,5 @@
 const { db, bot, sendMessage, refreshStockListeners } = require('./core')
-const { CMD_REGEX, commands } = require('./cmds')
+const commands = require('./cmds')
 
 // Create tables
 db.exec(`
@@ -24,19 +24,17 @@ refreshStockListeners()
 // refresh listeners every 30 seconds
 setInterval(refreshStockListeners, 30000)
 
+const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+
 // Make the bot reply to commands
 bot.onText(CMD_REGEX, async (msg, match) => {
-    if (!match) {
-        sendMessage(user, msg.text)
-        return
-    }
-
     const user = msg.chat.id
     const { name, args } = match.groups
 
     const command = commands[name]
     if (command) {
-        command(user, args)
+        const argList = args?.split(' ')
+        command(user, argList)
     } else {
         sendMessage(user, `What the heck is ${name}?`)
     }

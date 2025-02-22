@@ -98,11 +98,10 @@ async function help(user, args) {
     await sendMessage(user, `Commands:${separator}${cmdsFmt}`)
 }
 
+const commands = {
+    invest, linvest, dinvest, help, stock
+}
+
 // exports
 
-module.exports = {
-    COMMAND_REGEX: /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/,
-    commands: {
-        invest, linvest, dinvest, help, stock
-    }
-}
+module.exports = commands
