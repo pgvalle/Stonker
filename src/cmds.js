@@ -1,5 +1,18 @@
 const { db, sendMessage, addStockListener, fmtInvestment } = require('./core')
 
+const INVEST = `
+/invest STOCK VALUE DIFF
+
+Simulate stock investment.
+VALUE must be >= 1.00.
+DIFF must be > 0.00.
+DIFF is the gain/loss that triggers a notification.
+Only 2 decimals are used, so e.g 0.001 = $0.00.
+
+Examples:
+  /invest AMD 1 1 # notify at $2.00 or $0.00
+  /invest NVDA 3.00 0.01 # notify at $3.01 or $2.99`
+
 async function invest(user, args) {
     if (args.length !== 3) {
         await sendMessage(user, 'Wrong command syntax.')
@@ -36,7 +49,17 @@ async function invest(user, args) {
     })
 }
 
-async function dinvest(user, args) {
+const DINVESTS = `
+/dinvests [STOCK ...]
+
+Delete your investments on specified stocks.
+Zero arguments makes it list all of them.
+
+Examples:
+  /dinvest
+  /dinvest AMD TSLA NVDA`
+
+async function dinvests(user, args) {
     var action = `DELETE FROM investment WHERE user = ${user}`
     var reply = 'Now all your investments are gone.'
 
@@ -52,7 +75,17 @@ async function dinvest(user, args) {
     })
 }
 
-async function linvest(user, args) {
+const LINVESTS = `
+/linvests [STOCK ...]
+
+List your investments on specified stocks.
+Zero arguments makes it list all of them.
+
+Examples:
+  /linvest
+  /linvest AMD TSLA NVDA`
+
+async function linvests(user, args) {
     var action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
                   ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
     var reply = 'Here are all your investments\n'
@@ -75,7 +108,18 @@ async function linvest(user, args) {
     })
 }
 
-async function stock(user, args) {
+const STOCKS = `
+/stocks [STOCK ...]
+
+List specified stocks and their last known price.
+Zero arguments makes it list all of them.
+I just know stocks that users have invested with /invest.
+
+Examples:
+  /linvest
+  /linvest AMD TSLA NVDA`
+
+async function stocks(user, args) {
     var action = `SELECT * FROM stock`
     var reply = 'All stocks that I am aware of```\n'
 
@@ -97,19 +141,33 @@ async function stock(user, args) {
     })
 }
 
+const HELP = `
+asdfasdf
+asdf
+asd
+fas
+f
+dsaf
+dsf
+`
+
 async function help(user, args) {
-    if (args.length > 0) {
-        await sendMessage(user, 'Wrong command syntax.')
-        return
+    if (args.length == 0) {
+        args = Object.keys(commands)
     }
 
-    const separator = '\n '
-    const cmdsFmt = Object.keys(commands).join(separator)
-    await sendMessage(user, `Commands:${separator}${cmdsFmt}`)
+    const helps = { INVEST, LINVESTS, DINVESTS, STOCKS, HELP }
+
+    for (const arg of args) {
+        const help = helps[arg.toUpperCase()]
+        if (help) {
+            await sendMessage(user, '```' + help + '```')
+        }
+    }
 }
 
 const commands = {
-    invest, linvest, dinvest, help, stock
+    invest, linvests, dinvests, stocks, help
 }
 
 // exports
