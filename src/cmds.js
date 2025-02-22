@@ -53,7 +53,7 @@ const DINVESTS = `
 /dinvests [STOCK ...]
 
 Delete your investments on specified stocks.
-Zero arguments makes it list all of them.
+Zero arguments deletes all investments.
 
 Examples:
   /dinvest
@@ -79,7 +79,7 @@ const LINVESTS = `
 /linvests [STOCK ...]
 
 List your investments on specified stocks.
-Zero arguments makes it list all of them.
+Zero arguments lists all investments.
 
 Examples:
   /linvest
@@ -112,7 +112,7 @@ const STOCKS = `
 /stocks [STOCK ...]
 
 List specified stocks and their last known price.
-Zero arguments makes it list all of them.
+Zero arguments lists all stocks.
 I just know stocks that users have invested with /invest.
 
 Examples:
@@ -142,14 +142,14 @@ async function stocks(user, args) {
 }
 
 const HELP = `
-asdfasdf
-asdf
-asd
-fas
-f
-dsaf
-dsf
-`
+/help [COMMAND ...]
+
+Show help for specified commands.
+Zero arguments shows all helps.
+
+Examples:
+  /help
+  /help help stocks`
 
 async function help(user, args) {
     if (args.length == 0) {
