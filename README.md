@@ -25,7 +25,6 @@ The bot supports the following commands:
   - `DIFF` must be > 0.00 (notification each time VALUE changes by DIFF).
   - Reinvesting on the same stock overwrites the previous investment.
   - Only 2 decimals are used (e.g. 0.001 -> $0.00).
-  - Values must be
   - Example:
     ```
     /invest AMD 1 0.01
