@@ -6,7 +6,6 @@ const ssock = require('stocksocket') // https://github.com/gregtuc/StockSocket
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
 
 // create database and bot
-
 const db = new Database('./stocks.db', OPEN_READWRITE | OPEN_CREATE)
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
     polling: true
