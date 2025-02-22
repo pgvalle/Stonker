@@ -13,7 +13,7 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
 
 // send message with markdown formatting
 async function sendMessage(user, msg) {
-    bot.sendMessage(user, msg, {
+    await bot.sendMessage(user, msg, {
         parse_mode: 'Markdown'
     })
 }
