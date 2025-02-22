@@ -33,16 +33,14 @@ function refreshStockListeners() {
 
 // Listen to a given stock
 function addStockListener(stockMIC) {
-    ssock.addTicker(s.MIC, async (info) => {
-        const MIC = info.id
-        const price = info.price
+    ssock.addTicker(stockMIC, async (stock) => {
         // Add this stock listener to stock table or update an an already existing entry.
         const action = `INSERT OR REPLACE INTO stock (MIC, price)
-                        VALUES ('${MIC}', ${price})`
+                        VALUES ('${stockMIC}', ${stock.price})`
 
         db.exec(action, async (_) => {
             // Stock price changes may affect investments
-            await updateInvestments(MIC, price)
+            await updateInvestments(stockMIC, stock.price)
         })
     })
 }
