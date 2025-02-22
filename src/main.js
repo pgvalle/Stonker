@@ -31,7 +31,7 @@ const PLAIN_MSG_REGEX = /^(?!\/\S).+/s
 bot.onText(CMD_REGEX, async (msg, match) => {
     const user = msg.chat.id
     const name = match.groups.name
-    const args = match.groups.args?.split() || []
+    const args = match.groups.args?.split(' ') || []
     const command = commands[name]
     
     if (command) {
