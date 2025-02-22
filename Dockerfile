@@ -6,8 +6,9 @@ ENV NODE_ENV=production
 
 WORKDIR /stonker
 
-# copy all files of root directory to docker image and install node modules
-COPY . .
+# copy required files to docker image and install node modules
+COPY package*.json .
+COPY src .
 RUN npm install
 
 # run the application
