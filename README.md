@@ -1,6 +1,6 @@
 # Stonker
 
-Stonker is a Telegram bot that helps you track stock investments and receive notifications based on stock price changes.
+Stonker is a Telegram bot that helps you track stock investments, notifying you based on stock price changes.
 
 ## Deployment
 
@@ -22,8 +22,10 @@ The bot supports the following commands:
 - **/invest STOCK VALUE DIFF**
   - Simulates stock investment.
   - `VALUE` must be >= 1.00.
-  - `DIFF` must be > 0.00 (triggers a notification when stock price changes by this amount).
-  - Renvesting on the same stock overwrites the previous investment
+  - `DIFF` must be > 0.00 (triggers a notification when the invested value changes by this amount).
+  - Reinvesting on the same stock overwrites the previous investment
+  - Only 2 decimals are used (e.g. 0.001 -> $0.00).
+  - Values must be
   - Example:
     ```
     /invest AMD 1 1  # Notify at $2.00 or $0.00

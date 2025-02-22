@@ -7,9 +7,9 @@ helps.invest = `
 \`\`\`
 Simulate stock investment.
 VALUE must be >= 1.00.
-DIFF must be > 0.00.
-DIFF is the gain/loss that triggers a notification.
-Only 2 decimals are used (e.g. 0.001 = $0.00).
+DIFF must be > 0.00 (triggers a notification when the invested value changes by this amount).
+Reinvesting on the same stock overwrites the previous investment
+Only 2 decimals are used (e.g. 0.001 -> $0.00).
 \`\`\`
 Examples:
 \`\`\`
