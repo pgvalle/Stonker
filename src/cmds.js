@@ -2,17 +2,27 @@ const { db, sendMessage, addStockListener, fmtInvestment } = require('./core')
 
 async function invest(user, args) {
     if (args.length !== 3) {
-        sendMessage(user, 'Wrong command syntax.')
+        await sendMessage(user, 'Wrong command syntax.')
         return
     }
 
-    // TODO: validate inputs
+    await sendMessage(user, '*NOTE:* Only two decimal places are valid. E.g. 0.001 -> $0.00.')
+
     const stockMIC = args[0].toUpperCase()
     const value = Number(args[1])
-    const diffValue = Number(args[2])
+    const diff = Number(args[2])
+    
+    if (isNaN(value) || value < 1 || isNaN(diff) ||
+        diff <= 0 || Number(diff.toFixed(2)) == 0)
+    {
+        const reply = 'The first number must be >= $1.00 and the second one > $0.00.'
+        await sendMessage(user, reply)
+        return
+    }
+    
     const action = `
         INSERT OR REPLACE INTO investment (stockMIC, user, refStockPrice, value, lowValue, highValue)
-        SELECT stock.MIC, ${user}, stock.price, ${value}, ${value}, ${value}+${diffValue}
+        SELECT stock.MIC, ${user}, stock.price, ${value}, ${value}, ${value}+${diff}
         FROM stock WHERE stock.MIC = '${stockMIC}'
         RETURNING rowid`
     
