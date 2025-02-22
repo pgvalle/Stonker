@@ -25,25 +25,24 @@ refreshStockListeners()
 setInterval(refreshStockListeners, 30000)
 
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+const NONCMD_REGEX = /^(?!\/\S).+/s
 
-// Make the bot reply to commands and normal messages
-bot.on('message', async (msg, _) => {
+// Make the bot respond to commands
+bot.onText(CMD_REGEX, async (msg, match) => {
     const user = msg.chat.id
-    const match = msg.text.match(CMD_REGEX)
-    
-    // normal message
-    if (!match) {
-        await sendMessage(user, `ababaoey!`)
-        return
-    }
-    
-    const { name, args } = match.groups
+    const name = match.groups.name
+    const args = match.groups.args?.split() || []
     const command = commands[name]
 
     if (command) {
-        const argList = args?.split(' ')
-        await command(user, argList)
+        await command(user, args)
     } else {
-        await sendMessage(user, `What the heck is ${name}?`)
+        await sendMessage(user, `What the heck is ${name}? Send a /help bro.`)
     }
+})
+
+// make the bot respond to normal messages
+bot.onText(NONCMD_REGEX, async (msg, _) => {
+    const user = msg.chat.id
+    await sendMessage(user, msg.text)
 })
