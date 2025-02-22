@@ -1,7 +1,7 @@
 const { db, sendMessage, addStockListener, fmtInvestment } = require('./core')
 
 async function invest(user, args) {
-    if (!args || args.length !== 3) {
+    if (args.length !== 3) {
         sendMessage(user, 'Wrong command syntax.')
         return
     }
@@ -30,8 +30,8 @@ async function dinvest(user, args) {
     var action = `DELETE FROM investment WHERE user = ${user}`
     var reply = 'Now all your investments are gone.'
 
-    // args mean delete specified investments
-    if (args) {
+    // delete specified investments
+    if (args.length === 0) {
         const investments = `('` + args.join(`', '`).toUpperCase() + `')`
         action = `DELETE FROM investment WHERE stockMIC IN ${investments} AND user = ${user}`
         reply = 'Now those investments are gone.'
@@ -48,7 +48,7 @@ async function linvest(user, args) {
     var reply = 'Here are all your investments\n'
 
     // list of investments to look for
-    if (args) {
+    if (args.length > 0) {
         const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
         action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
                   ON investment.stockMIC = stock.MIC
@@ -70,7 +70,7 @@ async function stock(user, args) {
     var reply = 'All stocks that I am aware of```\n'
 
     // list of stocks to look for
-    if (args) {
+    if (args.length > 0) {
         const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
         action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
         reply = 'Stocks you wanted that I am aware of```\n'
@@ -88,7 +88,7 @@ async function stock(user, args) {
 }
 
 async function help(user, args) {
-    if (args) {
+    if (args.length > 0) {
         await sendMessage(user, 'Wrong command syntax.')
         return
     }
