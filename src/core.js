@@ -62,10 +62,10 @@ async function updateInvestments(stockMIC, stockPrice) {
     
     db.all(action, async (_, affectedInvestments) => {
         // Users should be notified of their affected investments
-        for (const ai of affectedInvestments) {
-            if (ai.lowValue !== ai.value && ai.highValue !== ai.value) {
-                const msg = fmtInvestment(ai, stockPrice)
-                await sendMessage(ai.user, msg)
+        for (const i of affectedInvestments) {
+            if (i.lowValue !== i.value && i.highValue !== i.value) {
+                const msg = fmtInvestment(i, stockPrice)
+                await sendMessage(i.user, msg)
             }
         }
     })
