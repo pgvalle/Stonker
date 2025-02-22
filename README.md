@@ -22,15 +22,14 @@ The bot supports the following commands:
 - **/invest STOCK VALUE DIFF**
   - Simulates stock investment.
   - `VALUE` must be >= 1.00.
-  - `DIFF` must be > 0.00 (triggers a notification when the invested value changes by this amount).
+  - `DIFF` must be > 0.00 (notification each time VALUE changes by DIFF).
   - Reinvesting on the same stock overwrites the previous investment.
   - Only 2 decimals are used (e.g. 0.001 -> $0.00).
   - Values must be
   - Example:
     ```
-    /invest AMD 1 0.01  # Notify at $2.00 or $0.00
-    /invest NVDA 3.00 0.01  # Notify at $3.01 or $2.99
-    /invest AMD 1 1  # Previous AMD investment gone
+    /invest AMD 1 0.01
+    /invest AMD 1.00 1  # Overwrites previous investment
     ```
 
 - **/linvest [STOCK ...]**
