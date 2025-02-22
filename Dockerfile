@@ -1,5 +1,5 @@
 # base image
-FROM node:18
+FROM node:23
 
 # envivonment variables. TELEGRAM_BOT_TOKEN must be passed through command-line
 ENV NODE_ENV=production
