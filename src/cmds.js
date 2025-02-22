@@ -15,6 +15,7 @@ Examples:
 \`\`\`
   /invest AMD 1 1 # notify at $2.00 or $0.00
   /invest NVDA 3.00 0.01 # notify at $3.01 or $2.99
+  /invest AMD 100.00 0.1  # Previous AMD investment gone
 \`\`\``
 
 async function invest(user, args) {
