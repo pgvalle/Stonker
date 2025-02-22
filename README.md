@@ -13,6 +13,8 @@ docker build -t stonker .
 docker run -e TELEGRAM_BOT_TOKEN='your_token_str' -d -t stonker
 ```
 
+**NOTE:** To get a Telegram bot token, talk to [@BotFather](https://t.me/BotFather).
+
 ## Usage
 
 The bot supports the following commands:
@@ -75,7 +77,7 @@ Another challenge was structuring the code. I started with everything in a singl
 
 - **SQLite3** - I needed a lightweight database, and SQLite fit well for this project.
 - **JavaScript** - Although I'm not a big fan of this language, it's widely used. And I wanted to improve my portfolio.
-- **[yagop/node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)** - I initially considered WhatsApp but found both its official and unofficial APIs restrictive (Needed to create a meta developer account or to have a spare number). In the end, Telegram turned out to be much better.
+- **[yagop/node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)** - I initially considered WhatsApp but found both its official and unofficial APIs restrictive (Needed to create a meta developer account or to have a spare phone number). In the end, Telegram turned out to be much better.
 - **[gregtuc/StockSocket](https://github.com/gregtuc/StockSocket)** - Provides real-time stock data updates via websockets. Unfortunately it's archived, but it works.
 
 ## Future Improvements
