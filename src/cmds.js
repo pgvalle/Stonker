@@ -8,14 +8,14 @@ helps.invest = `
 Simulate stock investment.
 VALUE must be >= 1.00.
 DIFF must be > 0.00 (triggers a notification when the invested value changes by this amount).
-Reinvesting on the same stock overwrites the previous investment
+Reinvesting on the same stock overwrites the previous investment.
 Only 2 decimals are used (e.g. 0.001 -> $0.00).
 \`\`\`
 Examples:
 \`\`\`
-  /invest AMD 1 1 # notify at $2.00 or $0.00
-  /invest NVDA 3.00 0.01 # notify at $3.01 or $2.99
-  /invest AMD 100.00 0.1  # Previous AMD investment gone
+/invest AMD 1 0.01  # notify at $2.00 or $0.00
+/invest NVDA 3.00 0.01  # notify at $3.01 or $2.99
+/invest AMD 10 1  # Previous AMD investment gone
 \`\`\``
 
 async function invest(user, args) {
@@ -56,13 +56,13 @@ async function invest(user, args) {
 helps.linvest = `
 /linvest \\[STOCK ...]
 \`\`\`
-List your investments on specified stocks.
-Zero arguments lists all investments.
+Lists your investments in specified stocks.
+If no arguments are provided, lists all investments.
 \`\`\`
 Examples:
 \`\`\`
-  /linvest
-  /linvest AMD TSLA NVDA
+/linvest
+/linvest AMD TSLA NVDA
 \`\`\``
 
 async function linvest(user, args) {
@@ -91,13 +91,13 @@ async function linvest(user, args) {
 helps.dinvest = `
 /dinvest \\[STOCK ...]
 \`\`\`
-Delete your investments on specified stocks.
-Zero arguments deletes all investments.
+Deletes your investments in specified stocks.
+If no arguments are provided, deletes all investments.
 \`\`\`
 Examples:
 \`\`\`
-  /dinvest
-  /dinvest AMD TSLA NVDA
+/dinvest
+/dinvest AMD TSLA NVDA
 \`\`\``
 
 async function dinvest(user, args) {
@@ -119,25 +119,25 @@ async function dinvest(user, args) {
 helps.stock = `
 /stock \\[STOCK ...]
 \`\`\`
-List specified stocks and their last known price.
-Zero arguments lists all stocks.
+Lists specified stocks and their last known prices.
+If no arguments are provided, lists all tracked stocks.
 I just know stocks that users have invested with /invest.
 \`\`\`
 Examples:
 \`\`\`
-  /stock
-  /stock AMD TSLA NVDA
+/stock
+/stock AMD TSLA NVDA
 \`\`\``
 
 async function stock(user, args) {
     var action = `SELECT * FROM stock`
-    var reply = 'All stocks that I am aware of```\n'
+    var reply = 'Here are all stocks that I am aware of```\n'
 
     // list of stocks to look for
     if (args.length > 0) {
         const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
         action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
-        reply = 'Stocks you wanted that I am aware of```\n'
+        reply = 'Here are the stocks you wanted to check```\n'
     }
 
     db.all(action, async (_, stocks) => {
@@ -159,8 +159,8 @@ Zero arguments shows all helps.
 \`\`\`
 Examples:
 \`\`\`
-  /help
-  /help help stock
+/help
+/help help stock
 \`\`\``
 
 async function help(user, args) {
