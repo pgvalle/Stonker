@@ -44,5 +44,5 @@ bot.onText(CMD_REGEX, async (msg, match) => {
 // make the bot respond to normal messages
 bot.onText(PLAIN_MSG_REGEX, async (msg, _) => {
     const user = msg.chat.id
-    await sendMessage(user, msg.text)
+    await sendMessage(user, `Send a /help to get useful info.`)
 })
