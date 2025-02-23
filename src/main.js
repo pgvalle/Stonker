@@ -7,6 +7,10 @@ db.exec(`
         MIC   VARCHAR(8) NOT NULL PRIMARY KEY,
         price REAL       NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS user (
+        id INTEGER NOT NULL PRIMARY KEY
+    );
     
     CREATE TABLE IF NOT EXISTS investment (
         stockMIC      VARCHAR(8) NOT NULL,
@@ -15,7 +19,8 @@ db.exec(`
         value         REAL       NOT NULL,
         lowValue      REAL       NOT NULL,
         highValue     REAL       NOT NULL,
-        PRIMARY KEY (stockMIC, user)
+        PRIMARY KEY (stockMIC, user),
+        FOREIGN KEY (user) REFERENCES users(id) ON DELETE CASCADE
     );`
 )
 
