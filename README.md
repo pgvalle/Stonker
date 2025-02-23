@@ -28,7 +28,7 @@ export TELEGRAM_BOT_TOKEN='your_token_here'
 node src/main.js
 ```
 
-#### Option 2: Without Docker
+#### Option 2: With Docker
 
 ```sh
 git clone https://github.com/pgvalle/Stonker
