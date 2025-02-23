@@ -15,7 +15,7 @@ commands.start = async function (user, _) {
                     WHERE NOT EXISTS (SELECT 1 FROM user WHERE id = ${user})
                     RETURNING rowid`
     
-    core.dbExecOrError(action, async (_, inserted) => {
+    core.dbExecOrError(action, async (inserted) => {
         if (inserted) {
             console.log(`new user ${user}`)
             await core.sendMsg(user, 'Welcome, user! Type /help to get useful info.')
@@ -65,7 +65,7 @@ commands.invest = async function (user, args) {
         FROM stock WHERE stock.MIC = '${stockMIC}'
         RETURNING rowid`
     
-    core.dbReturnOrError(action, async (_, result) => {
+    core.dbReturnOrError(action, async (result) => {
         if (result) {
             await core.sendMsg(user, `You invested in ${stockMIC} stocks.`)
         } else {
@@ -101,7 +101,7 @@ commands.linvest = async function (user, args) {
         reply = 'Here are the investments you asked\n'
     }
 
-    core.dbReturnOrError(action, async (_, joinResult) => {
+    core.dbReturnOrError(action, async (joinResult) => {
         for (const row of joinResult) {
             reply += core.fmtInvestment(row, row.price)
         }
@@ -133,7 +133,7 @@ commands.dinvest = async function (user, args) {
         reply = 'Now those investments are gone.'
     }
 
-    db.exec(action, async (_) => {
+    db.exec(action, async () => {
         await core.sendMsg(user, reply)
     })
 }
@@ -162,7 +162,7 @@ commands.stock = async function (user, args) {
         reply = 'Here are the stocks you wanted to check```\n'
     }
 
-    core.dbReturnOrError(action, async (_, stocks) => {
+    core.dbReturnOrError(action, async (stocks) => {
         for (const s of stocks) {
             const fmtMIC = s.MIC.padEnd(4, ' ')
             const fmtPrice = s.price.toFixed(2)

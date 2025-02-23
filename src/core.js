@@ -49,7 +49,7 @@ async function sendMsg(user, msg) {
 function refreshStockListeners() {
     ssock.removeAllTickers() // Trash all listeners
     
-    dbReturnOrError(`SELECT * FROM stock`, async (_, stocks) => {
+    dbReturnOrError(`SELECT * FROM stock`, async (stocks) => {
         // If a listener had an associated entry in stock table, it was valid. Readd it.
         for (const s of stocks) {
             addStockListener(s.MIC)
@@ -57,7 +57,7 @@ function refreshStockListeners() {
     })
 
     // if (priceUpdateStatus == 0) {
-    //     dbReturnOrError(`SELECT DISTINCT user FROM investment`, async (_, investment) => {
+    //     dbReturnOrError(`SELECT DISTINCT user FROM investment`, async (investment) => {
     //         const reply = `The market might be closed...`
     //         for (const i of investment) {
     //             await sendMsg(i.user, reply)
@@ -77,7 +77,7 @@ function addStockListener(stockMIC) {
         const action = `INSERT OR REPLACE INTO stock (MIC, price)
                         VALUES ('${stockMIC}', ${stock.price})`
 
-        db.exec(action, async (_) => {
+        db.exec(action, async () => {
             // Stock price changes may affect investments
             await updateInvestments(stockMIC, stock.price)
         })
@@ -102,7 +102,7 @@ async function updateInvestments(stockMIC, stockPrice) {
         WHERE stockMIC = '${stockMIC}' AND ${newValue} NOT BETWEEN lowValue AND highValue
         RETURNING *`
     
-    dbReturnOrError(action, async (_, affectedInvestments) => {
+    dbReturnOrError(action, async (affectedInvestments) => {
         // Users should be notified of their affected investments
         for (const i of affectedInvestments) {
             if (i.lowValue !== i.value && i.highValue !== i.value) {
