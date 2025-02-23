@@ -11,6 +11,28 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
     polling: true
 })
 
+// So that I don't need to worry about bloating the rest of my code with logging
+function dbExecOrError(action, callback) {
+    db.exec(action, async (err) => {
+        if (err) {
+            console.log(err.message)
+        } else {
+            await callback?.()
+        }
+    })
+}
+
+// Same here than above
+function dbReturnOrError(action, callback) {
+    db.all(action, async (err, ret) => {
+        if (err) {
+            console.log(err.message)
+        } else {
+            await callback?.(ret)
+        }
+    })
+}
+
 // send message with markdown formatting
 async function sendMsg(user, msg) {
     await bot.sendMessage(user, msg, {
@@ -22,7 +44,7 @@ async function sendMsg(user, msg) {
 function refreshStockListeners() {
     ssock.removeAllTickers() // Trash all listeners
     
-    db.all(`SELECT * FROM stock`, async (_, stocks) => {
+    dbReturnOrError(`SELECT * FROM stock`, async (_, stocks) => {
         // If a listener had an associated entry in stock table, it was valid. Readd it.
         for (const s of stocks) {
             addStockListener(s.MIC)
@@ -60,7 +82,7 @@ async function updateInvestments(stockMIC, stockPrice) {
         WHERE stockMIC = '${stockMIC}' AND ${newValue} NOT BETWEEN lowValue AND highValue
         RETURNING *`
     
-    db.all(action, async (_, affectedInvestments) => {
+    dbReturnOrError(action, async (_, affectedInvestments) => {
         // Users should be notified of their affected investments
         for (const i of affectedInvestments) {
             if (i.lowValue !== i.value && i.highValue !== i.value) {
@@ -101,8 +123,9 @@ function fmtInvestment(i, stockPrice) {
 // exports
 
 module.exports = {
-    db,
     bot,
+    dbExecOrError,
+    dbReturnOrError,
     sendMsg,
     refreshStockListeners,
     addStockListener,
