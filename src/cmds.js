@@ -3,6 +3,28 @@ const { db, sendMsg, addStockListener, fmtInvestment } = require('./core')
 const helps = {}
 const commands = {}
 
+helps.start = `
+/start
+\`\`\`
+Registers you as a user.
+Takes no arguments.
+\`\`\``
+
+commands.start = async function (user, _) {
+    const action = `INSERT OR REPLACE INTO user (id) SELECT ${user} 
+                    WHERE NOT EXISTS (SELECT 1 FROM user WHERE id = ${user})
+                    RETURNING rowid`
+    
+    db.get(action, async (_, inserted) => {
+        if (inserted) {
+            console.log(`new user ${user} added`)
+            await sendMsg('Welcome, user! Type /help to get useful info.')
+        } else {
+            await sendMsg(user, 'Bro, I already know you.')
+        }
+    })
+}
+
 helps.invest = `
 /invest STOCK VALUE DIFF
 \`\`\`
