@@ -1,8 +1,8 @@
-const { db, bot, sendMsg, refreshStockListeners } = require('./core')
+const core = require('./core')
 const commands = require('./cmds')
 
 // Create tables
-db.exec(`
+core.dbExecOrError(`
     CREATE TABLE IF NOT EXISTS stock (
         MIC   VARCHAR(8) NOT NULL PRIMARY KEY,
         price REAL       NOT NULL
@@ -25,9 +25,9 @@ db.exec(`
 )
 
 // add listeners on startup
-refreshStockListeners()
+core.refreshStockListeners()
 // refresh listeners every 30 seconds
-setInterval(refreshStockListeners, 30000)
+setInterval(core.refreshStockListeners, 30000)
 
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 const PLAIN_MSG_REGEX = /^(?!\/\S).+/s
@@ -42,12 +42,12 @@ bot.onText(CMD_REGEX, async (msg, match) => {
     if (command) {
         await command(user, args)
     } else {
-        await sendMsg(user, `What the heck is ${name}? Send a /help bro.`)
+        await core.sendMsg(user, `What the heck is ${name}? Send a /help bro.`)
     }
 })
 
 // make the bot respond to normal messages
 bot.onText(PLAIN_MSG_REGEX, async (msg, _) => {
     const user = msg.chat.id
-    await sendMsg(user, `Send a /help to get useful info.`)
+    await core.sendMsg(user, `Send a /help to get useful info.`)
 })

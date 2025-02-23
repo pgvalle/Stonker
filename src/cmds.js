@@ -1,4 +1,4 @@
-const { db, sendMsg, addStockListener, fmtInvestment } = require('./core')
+const core = require('./core')
 
 const helps = {}
 const commands = {}
@@ -15,12 +15,12 @@ commands.start = async function (user, _) {
                     WHERE NOT EXISTS (SELECT 1 FROM user WHERE id = ${user})
                     RETURNING rowid`
     
-    db.get(action, async (_, inserted) => {
+    core.dbExecOrError(action, async (_, inserted) => {
         if (inserted) {
-            console.log(`new user ${user} added`)
-            await sendMsg('Welcome, user! Type /help to get useful info.')
+            console.log(`new user ${user}`)
+            await core.sendMsg(user, 'Welcome, user! Type /help to get useful info.')
         } else {
-            await sendMsg(user, 'Bro, I already know you.')
+            await core.sendMsg(user, 'Bro, I already know you.')
         }
     })
 }
@@ -42,11 +42,11 @@ Examples:
 
 commands.invest = async function (user, args) {
     if (args.length !== 3) {
-        await sendMsg(user, 'Wrong command syntax.')
+        await core.sendMsg(user, 'Wrong command syntax.')
         return
     }
 
-    await sendMsg(user, '*NOTE:* Only two decimal are used (e.g. 0.001 = $0.00).')
+    await core.sendMsg(user, '*NOTE:* Only two decimal are used (e.g. 0.001 = $0.00).')
 
     const stockMIC = args[0].toUpperCase()
     const value = Number(args[1])
@@ -55,7 +55,7 @@ commands.invest = async function (user, args) {
     if (isNaN(value) || value < 1 || isNaN(diff) ||
         diff <= 0 || Number(diff.toFixed(2)) == 0)
     {
-        await sendMsg(user, 'The first value must be >= $1.00 and the second one > $0.00.')
+        await core.sendMsg(user, 'The first value must be >= $1.00 and the second one > $0.00.')
         return
     }
     
@@ -65,12 +65,12 @@ commands.invest = async function (user, args) {
         FROM stock WHERE stock.MIC = '${stockMIC}'
         RETURNING rowid`
     
-    db.get(action, async (_, result) => {
+    core.dbReturnOrError(action, async (_, result) => {
         if (result) {
-            await sendMsg(user, `You invested in ${stockMIC} stocks.`)
+            await core.sendMsg(user, `You invested in ${stockMIC} stocks.`)
         } else {
-            addStockListener(stockMIC)
-            await sendMsg(user, `I was not aware of ${stockMIC}. Try again later.`)
+            core.addStockListener(stockMIC)
+            await core.sendMsg(user, `I was not aware of ${stockMIC}. Try again later.`)
         }
     })
 }
@@ -101,12 +101,12 @@ commands.linvest = async function (user, args) {
         reply = 'Here are the investments you asked\n'
     }
 
-    db.all(action, async (_, joinResult) => {
+    core.dbReturnOrError(action, async (_, joinResult) => {
         for (const row of joinResult) {
-            reply += fmtInvestment(row, row.price)
+            reply += core.fmtInvestment(row, row.price)
         }
 
-        await sendMsg(user, reply)
+        await core.sendMsg(user, reply)
     })
 }
 
@@ -134,7 +134,7 @@ commands.dinvest = async function (user, args) {
     }
 
     db.exec(action, async (_) => {
-        await sendMsg(user, reply)
+        await core.sendMsg(user, reply)
     })
 }
 
@@ -162,14 +162,14 @@ commands.stock = async function (user, args) {
         reply = 'Here are the stocks you wanted to check```\n'
     }
 
-    db.all(action, async (_, stocks) => {
+    core.dbReturnOrError(action, async (_, stocks) => {
         for (const s of stocks) {
             const fmtMIC = s.MIC.padEnd(4, ' ')
             const fmtPrice = s.price.toFixed(2)
             reply += `${fmtMIC} : $${fmtPrice}\n`
         }
 
-        await sendMsg(user, reply + '```')
+        await core.sendMsg(user, reply + '```')
     })
 }
 
@@ -194,7 +194,7 @@ commands.help = async function (user, args) {
     for (const arg of args) {
         const help = helps[arg.toLowerCase()]
         if (help) {
-            await sendMsg(user, help)
+            await core.sendMsg(user, help)
         }
     }
 }
