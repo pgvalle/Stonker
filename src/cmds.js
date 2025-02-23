@@ -1,6 +1,7 @@
 const { db, sendMsg, addStockListener, fmtInvestment } = require('./core')
 
 const helps = {}
+const commands = {}
 
 helps.invest = `
 /invest STOCK VALUE DIFF
@@ -17,7 +18,7 @@ Examples:
 /invest AMD 1.00 1  # Overwrites previous investment
 \`\`\``
 
-async function invest(user, args) {
+commands.invest = async function (user, args) {
     if (args.length !== 3) {
         await sendMsg(user, 'Wrong command syntax.')
         return
@@ -64,7 +65,7 @@ Examples:
 /linvest AMD TSLA NVDA
 \`\`\``
 
-async function linvest(user, args) {
+commands.linvest = async function (user, args) {
     var action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
                   ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
     var reply = 'Here are all your investments\n'
@@ -99,7 +100,7 @@ Examples:
 /dinvest AMD TSLA NVDA
 \`\`\``
 
-async function dinvest(user, args) {
+commands.dinvest = async function (user, args) {
     var action = `DELETE FROM investment WHERE user = ${user}`
     var reply = 'Now all your investments are gone.'
 
@@ -128,7 +129,7 @@ Examples:
 /stock AMD TSLA NVDA
 \`\`\``
 
-async function stock(user, args) {
+commands.stock = async function (user, args) {
     var action = `SELECT * FROM stock`
     var reply = 'Here are all stocks that I am aware of```\n'
 
@@ -162,7 +163,7 @@ Examples:
 /help help stock
 \`\`\``
 
-async function help(user, args) {
+commands.help = async function (user, args) {
     // if no arguments then list all commands
     if (args.length == 0) {
         args = Object.keys(commands)
@@ -174,10 +175,6 @@ async function help(user, args) {
             await sendMsg(user, help)
         }
     }
-}
-
-const commands = {
-    invest, linvest, dinvest, stock, help
 }
 
 // exports
