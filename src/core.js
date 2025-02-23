@@ -40,6 +40,11 @@ async function sendMsg(user, msg) {
     })
 }
 
+//  1: got updates
+//  0: no updates
+// -1: no updates, and users were notified
+// var priceUpdateStatus = 1
+
 // Users may try to invest on invalid stocks. That ends up adding invalid listeners.
 function refreshStockListeners() {
     ssock.removeAllTickers() // Trash all listeners
@@ -50,6 +55,19 @@ function refreshStockListeners() {
             addStockListener(s.MIC)
         }
     })
+
+    // if (priceUpdateStatus == 0) {
+    //     dbReturnOrError(`SELECT DISTINCT user FROM investment`, async (_, investment) => {
+    //         const reply = `The market might be closed...`
+    //         for (const i of investment) {
+    //             await sendMsg(i.user, reply)
+    //         }
+    //     })
+
+    //     priceUpdateStatus = -1
+    // } else if (priceUpdateStatus == 1) {
+    //     priceUpdateStatus = 0
+    // }
 }
 
 // Listen to a given stock
@@ -63,6 +81,8 @@ function addStockListener(stockMIC) {
             // Stock price changes may affect investments
             await updateInvestments(stockMIC, stock.price)
         })
+
+        // priceUpdateStatus = 1
     })
 }
 
