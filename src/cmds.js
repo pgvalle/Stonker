@@ -1,4 +1,4 @@
-const { db, sendMessage, addStockListener, fmtInvestment } = require('./core')
+const { db, sendMsg, addStockListener, fmtInvestment } = require('./core')
 
 const helps = {}
 
@@ -19,11 +19,11 @@ Examples:
 
 async function invest(user, args) {
     if (args.length !== 3) {
-        await sendMessage(user, 'Wrong command syntax.')
+        await sendMsg(user, 'Wrong command syntax.')
         return
     }
 
-    await sendMessage(user, '*NOTE:* Only two decimal are used (e.g. 0.001 = $0.00).')
+    await sendMsg(user, '*NOTE:* Only two decimal are used (e.g. 0.001 = $0.00).')
 
     const stockMIC = args[0].toUpperCase()
     const value = Number(args[1])
@@ -32,7 +32,7 @@ async function invest(user, args) {
     if (isNaN(value) || value < 1 || isNaN(diff) ||
         diff <= 0 || Number(diff.toFixed(2)) == 0)
     {
-        await sendMessage(user, 'The first value must be >= $1.00 and the second one > $0.00.')
+        await sendMsg(user, 'The first value must be >= $1.00 and the second one > $0.00.')
         return
     }
     
@@ -44,10 +44,10 @@ async function invest(user, args) {
     
     db.get(action, async (_, result) => {
         if (result) {
-            await sendMessage(user, `You invested in ${stockMIC} stocks.`)
+            await sendMsg(user, `You invested in ${stockMIC} stocks.`)
         } else {
             addStockListener(stockMIC)
-            await sendMessage(user, `I was not aware of ${stockMIC}. Try again later.`)
+            await sendMsg(user, `I was not aware of ${stockMIC}. Try again later.`)
         }
     })
 }
@@ -83,7 +83,7 @@ async function linvest(user, args) {
             reply += fmtInvestment(row, row.price)
         }
 
-        await sendMessage(user, reply)
+        await sendMsg(user, reply)
     })
 }
 
@@ -111,7 +111,7 @@ async function dinvest(user, args) {
     }
 
     db.exec(action, async (_) => {
-        await sendMessage(user, reply)
+        await sendMsg(user, reply)
     })
 }
 
@@ -146,7 +146,7 @@ async function stock(user, args) {
             reply += `${fmtMIC} : $${fmtPrice}\n`
         }
 
-        await sendMessage(user, reply + '```')
+        await sendMsg(user, reply + '```')
     })
 }
 
@@ -171,7 +171,7 @@ async function help(user, args) {
     for (const arg of args) {
         const help = helps[arg.toLowerCase()]
         if (help) {
-            await sendMessage(user, help)
+            await sendMsg(user, help)
         }
     }
 }

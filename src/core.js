@@ -12,7 +12,7 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
 })
 
 // send message with markdown formatting
-async function sendMessage(user, msg) {
+async function sendMsg(user, msg) {
     await bot.sendMessage(user, msg, {
         parse_mode: 'Markdown'
     })
@@ -65,7 +65,7 @@ async function updateInvestments(stockMIC, stockPrice) {
         for (const i of affectedInvestments) {
             if (i.lowValue !== i.value && i.highValue !== i.value) {
                 const msg = fmtInvestment(i, stockPrice)
-                await sendMessage(i.user, msg)
+                await sendMsg(i.user, msg)
             }
         }
     })
@@ -103,7 +103,7 @@ function fmtInvestment(i, stockPrice) {
 module.exports = {
     db,
     bot,
-    sendMessage,
+    sendMsg,
     refreshStockListeners,
     addStockListener,
     fmtInvestment

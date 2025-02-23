@@ -1,4 +1,4 @@
-const { db, bot, sendMessage, refreshStockListeners } = require('./core')
+const { db, bot, sendMsg, refreshStockListeners } = require('./core')
 const commands = require('./cmds')
 
 // Create tables
@@ -37,12 +37,12 @@ bot.onText(CMD_REGEX, async (msg, match) => {
     if (command) {
         await command(user, args)
     } else {
-        await sendMessage(user, `What the heck is ${name}? Send a /help bro.`)
+        await sendMsg(user, `What the heck is ${name}? Send a /help bro.`)
     }
 })
 
 // make the bot respond to normal messages
 bot.onText(PLAIN_MSG_REGEX, async (msg, _) => {
     const user = msg.chat.id
-    await sendMessage(user, `Send a /help to get useful info.`)
+    await sendMsg(user, `Send a /help to get useful info.`)
 })
