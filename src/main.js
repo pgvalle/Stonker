@@ -4,12 +4,9 @@ const commands = require('./cmds')
 // Create tables
 core.dbExecOrError(`
     CREATE TABLE IF NOT EXISTS stock (
-        MIC   VARCHAR(8) NOT NULL PRIMARY KEY,
-        price REAL       NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS user (
-        id INTEGER NOT NULL PRIMARY KEY
+        MIC         VARCHAR(8)  NOT NULL PRIMARY KEY,
+        marketHours VARCHAR(20) NOT NULL,
+        price       REAL        NOT NULL
     );
     
     CREATE TABLE IF NOT EXISTS investment (
@@ -19,8 +16,7 @@ core.dbExecOrError(`
         value         REAL       NOT NULL,
         lowValue      REAL       NOT NULL,
         highValue     REAL       NOT NULL,
-        PRIMARY KEY (stockMIC, user),
-        FOREIGN KEY (user) REFERENCES users(id) ON DELETE CASCADE
+        PRIMARY KEY (stockMIC, user)
     );`
 )
 
@@ -33,7 +29,7 @@ const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 const PLAIN_MSG_REGEX = /^(?!\/\S).+/s
 
 // Make the bot respond to commands
-bot.onText(CMD_REGEX, async (msg, match) => {
+core.bot.onText(CMD_REGEX, async (msg, match) => {
     const user = msg.chat.id
     const name = match.groups.name.toLocaleLowerCase()
     const args = match.groups.args?.split(' ') || []
@@ -47,7 +43,7 @@ bot.onText(CMD_REGEX, async (msg, match) => {
 })
 
 // make the bot respond to normal messages
-bot.onText(PLAIN_MSG_REGEX, async (msg, _) => {
+core.bot.onText(PLAIN_MSG_REGEX, async (msg, _) => {
     const user = msg.chat.id
     await core.sendMsg(user, `Send a /help to get useful info.`)
 })
