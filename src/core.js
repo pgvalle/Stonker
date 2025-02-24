@@ -17,7 +17,7 @@ function dbExecOrError(action, callback) {
         if (err) {
             console.log(err.message)
         } else {
-            await callback()
+            await callback?.()
         }
     })
 }
@@ -28,7 +28,7 @@ function dbReturnOrError(action, callback) {
         if (err) {
             console.log(err.message)
         } else {
-            await callback(ret)
+            await callback?.(ret)
         }
     })
 }
@@ -56,8 +56,8 @@ function refreshStockListeners() {
 function addStockListener(stockMIC) {
     ssock.addTicker(stockMIC, async (stock) => {
         // Add this stock listener to stock table or update an an already existing entry.
-        const action = `INSERT OR REPLACE INTO stock (MIC, price)
-                        VALUES ('${stockMIC}', ${stock.price})`
+        const action = `INSERT OR REPLACE INTO stock (MIC, marketHours, price)
+                        VALUES ('${stockMIC}', ${stock.marketHours}, ${stock.price})`
 
         db.exec(action, async () => {
             // Stock price changes may affect investments
