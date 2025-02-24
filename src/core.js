@@ -45,7 +45,7 @@ function refreshStockListeners() {
     ssock.removeAllTickers() // Trash all listeners
     
     dbReturnOrError(`SELECT * FROM stock`, async (stocks) => {
-        // If a listener had an associated entry in stock table, it was valid. Readd it.
+        // If a listener had an entry in stock table, it was valid. Readd it.
         for (const s of stocks) {
             addStockListener(s.MIC)
         }
