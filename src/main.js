@@ -5,8 +5,9 @@ const commands = require('./cmds')
 core.dbExecOrError(`
     CREATE TABLE IF NOT EXISTS stock (
         MIC         VARCHAR(8)  NOT NULL PRIMARY KEY,
-        marketHours VARCHAR(20) NOT NULL,
-        price       REAL        NOT NULL
+        price       REAL        NOT NULL,
+        time        TIMESTAMP   NOT NULL,
+        marketHours VARCHAR(20) NOT NULL
     );
     
     CREATE TABLE IF NOT EXISTS investment (

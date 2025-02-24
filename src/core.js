@@ -56,8 +56,8 @@ function refreshStockListeners() {
 function addStockListener(stockMIC) {
     ssock.addTicker(stockMIC, async (stock) => {
         // Add this stock listener to stock table or update an an already existing entry.
-        const action = `INSERT OR REPLACE INTO stock (MIC, marketHours, price)
-                        VALUES ('${stockMIC}', ${stock.marketHours}, ${stock.price})`
+        const action = `INSERT OR REPLACE INTO stock (MIC, price, time, marketHours)
+                        VALUES ('${stockMIC}', ${stock.price}, ${stock.time}, ${stock.marketHours})`
 
         db.exec(action, async () => {
             // Stock price changes may affect investments
