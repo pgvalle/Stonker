@@ -86,9 +86,11 @@ commands.linvest = async function (user, args) {
     }
 
     core.dbReturnOrError(action, async (joinResults) => {
-        if (joinResults.length == 0) {
+        if (joinResults.length == 0 && args.length == 0) {
             await core.sendMsg(user, 'You have no investments.')
-        } else {   
+        } else if (joinResults.length == 0 && args.length > 0) {
+            await core.sendMsg(user, 'You do not have those investments.')
+        } else {
             await core.sendMsg(user, joinResults.reduce((msgAcc, row) => {
                 return msgAcc + core.fmtInvestment(row, row.price)
             }, reply))
@@ -109,21 +111,24 @@ Examples:
 \`\`\``
 
 commands.dinvest = async function (user, args) {
-    var action = `DELETE FROM investment WHERE user = ${user} RETURNING *`
+    var action = `DELETE FROM investment WHERE user = ${user} RETURNING rowid`
     var reply = 'Now all your investments are gone.'
 
     // delete specified investments
     if (args.length > 0) {
         const investments = `('` + args.join(`', '`).toUpperCase() + `')`
-        action = `DELETE FROM investment WHERE stockMIC IN ${investments} AND user = ${user}`
+        action = `DELETE FROM investment WHERE stockMIC IN
+                      ${investments} AND user = ${user} RETURNING rowid`
         reply = 'Now those investments are gone.'
     }
 
     core.dbReturnOrError(action, async (investments) => {
-        if (investments.length > 0) {
-            await core.sendMsg(user, reply)
-        } else {
+        if (investments.length == 0 && args.length == 0) {
             await core.sendMsg(user, 'You have no investments to delete.')
+        } else if (investments.length == 0 && args.length > 0) {
+            await core.sendMsg(user, 'You do not have those investments.')
+        } else { // investments.length == args.length -> deleted all investments specified
+            await core.sendMsg(user, reply)
         }
     })
 }
