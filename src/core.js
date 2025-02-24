@@ -96,6 +96,7 @@ async function updateInvestments(stockMIC, stockPrice) {
 // Formatted information of a given investment i
 function fmtInvestment(i, stockPrice) {
     const diff = i.value * (stockPrice / i.refStockPrice - 1)
+    const newValue = i.value + diff
     const param = i.highValue - i.lowValue
 
     const fmtDiff = (diff >= 0 ? '+' : '') + diff.toFixed(2)
