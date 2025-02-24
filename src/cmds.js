@@ -120,7 +120,7 @@ commands.dinvest = async function (user, args) {
     }
 
     core.dbReturnOrError(action, async (investments) => {
-        if (investments.length == 0) {
+        if (investments.length > 0) {
             await core.sendMsg(user, reply)
         } else {
             await core.sendMsg(user, 'You have no investments to delete.')
