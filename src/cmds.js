@@ -3,34 +3,13 @@ const core = require('./core')
 const helps = {}
 const commands = {}
 
-helps.start = `
-/start
-\`\`\`
-Registers you as a user.
-Takes no arguments.
-\`\`\``
-
-commands.start = async function (user, _) {
-    const action = `INSERT OR REPLACE INTO user (id) SELECT ${user} 
-                    WHERE NOT EXISTS (SELECT 1 FROM user WHERE id = ${user})
-                    RETURNING rowid`
-    
-    core.dbExecOrError(action, async (inserted) => {
-        if (inserted) {
-            console.log(`new user ${user}`)
-            await core.sendMsg(user, 'Welcome, user! Type /help to get useful info.')
-        } else {
-            await core.sendMsg(user, 'Bro, I already know you.')
-        }
-    })
-}
-
 helps.invest = `
 /invest STOCK VALUE DIFF
 \`\`\`
-Simulate stock investment.
+Simulate investment in STOCK.
 VALUE must be >= 1.00.
 DIFF must be > 0.00 (notification each time VALUE changes by DIFF).
+STOCK must appear when you send a /stock STOCK
 Reinvesting on the same stock overwrites the previous investment.
 Only 2 decimals are used (e.g. 0.001 -> $0.00).
 \`\`\`
@@ -46,8 +25,6 @@ commands.invest = async function (user, args) {
         return
     }
 
-    await core.sendMsg(user, '*NOTE:* Only two decimal are used (e.g. 0.001 = $0.00).')
-
     const stockMIC = args[0].toUpperCase()
     const value = Number(args[1])
     const diff = Number(args[2])
@@ -56,21 +33,28 @@ commands.invest = async function (user, args) {
         diff <= 0 || Number(diff.toFixed(2)) == 0)
     {
         await core.sendMsg(user, 'The first value must be >= $1.00 and the second one > $0.00.')
+        await core.sendMsg(user, '*NOTE:* Only two decimals are used (e.g. 0.001 = $0.00).')
         return
     }
     
-    const action = `
-        INSERT OR REPLACE INTO investment (stockMIC, user, refStockPrice, value, lowValue, highValue)
-        SELECT stock.MIC, ${user}, stock.price, ${value}, ${value}, ${value}+${diff}
-        FROM stock WHERE stock.MIC = '${stockMIC}'
-        RETURNING rowid`
+    const action = `INSERT OR REPLACE INTO investment (stockMIC, user,
+                        refStockPrice, value, lowValue, highValue)
+                    SELECT stock.MIC, ${user}, stock.price,
+                        ${value}, ${value}, ${value}+${diff}
+                    FROM stock WHERE stock.MIC = '${stockMIC}'
+                    RETURNING rowid`
     
     core.dbReturnOrError(action, async (result) => {
-        if (result) {
+        if (result.length > 0) {
             await core.sendMsg(user, `You invested in ${stockMIC} stocks.`)
         } else {
             core.addStockListener(stockMIC)
-            await core.sendMsg(user, `I was not aware of ${stockMIC}. Try again later.`)
+
+            const reply = `I watch stocks on demand, and I do not know ${stockMIC}.
+                           Wait a couple seconds, then send a /stock ${stockMIC} to check if it appears.
+                           And watch out for market hours, because`
+
+            await core.sendMsg(user, reply)
         }
     })
 }
@@ -101,12 +85,14 @@ commands.linvest = async function (user, args) {
         reply = 'Here are the investments you asked\n'
     }
 
-    core.dbReturnOrError(action, async (joinResult) => {
-        for (const row of joinResult) {
-            reply += core.fmtInvestment(row, row.price)
+    core.dbReturnOrError(action, async (joinResults) => {
+        if (joinResults.length == 0) {
+            await core.sendMsg(user, 'You have no investments.')
+        } else {   
+            await core.sendMsg(user, joinResults.reduce((msgAcc, row) => {
+                return msgAcc + core.fmtInvestment(row, row.price)
+            }, reply))
         }
-
-        await core.sendMsg(user, reply)
     })
 }
 
@@ -123,7 +109,7 @@ Examples:
 \`\`\``
 
 commands.dinvest = async function (user, args) {
-    var action = `DELETE FROM investment WHERE user = ${user}`
+    var action = `DELETE FROM investment WHERE user = ${user} RETURNING *`
     var reply = 'Now all your investments are gone.'
 
     // delete specified investments
@@ -133,8 +119,12 @@ commands.dinvest = async function (user, args) {
         reply = 'Now those investments are gone.'
     }
 
-    db.exec(action, async () => {
-        await core.sendMsg(user, reply)
+    core.dbReturnOrError(action, async (investments) => {
+        if (investments.length == 0) {
+            await core.sendMsg(user, reply)
+        } else {
+            await core.sendMsg(user, 'You have no investments to delete.')
+        }
     })
 }
 
