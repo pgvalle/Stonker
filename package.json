@@ -6,6 +6,10 @@
   "author": "",
   "type": "commonjs",
   "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node test/db-test.js"
+  },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0",
     "sqlite3": "^5.1.7",

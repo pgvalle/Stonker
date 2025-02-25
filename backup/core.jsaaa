@@ -1,0 +1,48 @@
+const { Database, OPEN_READWRITE, OPEN_CREATE } = require('sqlite3')
+const TelegramBot = require('node-telegram-bot-api') // https://github.com/yagop/node-telegram-bot-api
+const ssock = require('stocksocket') // https://github.com/gregtuc/StockSocket
+
+
+
+// update all investments on a given stock based on its new price
+async function updateInvestments(stockMIC, stockPrice) {
+    const newValue = `(${stockPrice} / refStockPrice) * value`
+    const diff = '(highValue - lowValue)'
+    const query = `
+        UPDATE investment SET
+        lowValue = CASE
+            WHEN $newValue > highValue THEN lowValue + CEIL(($newValue - highValue) / $param) * $param
+            WHEN $newValue < lowValue THEN lowValue - CEIL((lowValue - $newValue) / $param) * $param
+            ELSE lowValue
+        END,
+        highValue = CASE
+            WHEN $newValue > highValue THEN highValue + CEIL(($newValue - highValue) / $param) * $param
+            WHEN $newValue < lowValue THEN highValue - CEIL((lowValue - $newValue) / $param) * $param
+            ELSE highValue
+        END
+        WHERE stockMIC = '$MIC' AND $newValue NOT BETWEEN lowValue AND highValue
+        RETURNING *`
+
+    dbExecOrError('all', query, async (affectedInvestments) => {
+        // Users should be notified of their affected investments
+        for (const i of affectedInvestments) {
+            if (i.lowValue !== i.value && i.highValue !== i.value) {
+                const msg = fmtInvestment(i, stockPrice, true)
+                await sendMsg(i.user, msg)
+            }
+        }
+    })
+}
+
+
+// exports
+
+module.exports = {
+    bot,
+    dbExecOrError,
+    sendMsg,
+    refreshStockListeners,
+    addStockListener,
+    fmtStock,
+    fmtInvestment
+}

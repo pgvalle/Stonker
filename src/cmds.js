@@ -1,4 +1,6 @@
-const core = require('./core')
+const { db, queries } = require('./db')
+const bot = require('./bot')
+const stocks = require('./stocks')
 
 const helps = {}
 const commands = {}
@@ -21,7 +23,7 @@ Examples:
 
 commands.invest = async function (user, args) {
     if (args.length !== 3) {
-        await core.sendMsg(user, 'Wrong command syntax.')
+        await bot.sendMsg(user, 'Wrong command syntax.')
         return
     }
 
@@ -32,31 +34,29 @@ commands.invest = async function (user, args) {
     if (isNaN(value) || value < 1 || isNaN(diff) ||
         diff <= 0 || Number(diff.toFixed(2)) == 0)
     {
-        await core.sendMsg(user, 'The first value must be >= $1.00 and the second one > $0.00.')
-        await core.sendMsg(user, '*NOTE:* Only two decimals are used (e.g. 0.001 = $0.00).')
+        await bot.sendMsg(user, 'The first value must be >= $1.00 and the second one > $0.00.')
+        await bot.sendMsg(user, '*NOTE:* Only two decimals are used (e.g. 0.001 = $0.00).')
         return
     }
     
-    const action = `INSERT OR REPLACE INTO investment (stockMIC, user,
-                        refStockPrice, value, lowValue, highValue)
-                    SELECT stock.MIC, ${user}, stock.price,
-                        ${value}, ${value}, ${value}+${diff}
-                    FROM stock WHERE stock.MIC = '${stockMIC}'
-                    RETURNING rowid`
-    
-    core.dbReturnOrError(action, async (result) => {
-        if (result.length > 0) {
-            await core.sendMsg(user, `You invested in ${stockMIC} stocks.`)
-        } else {
-            core.addStockListener(stockMIC)
+    // db.all(queries.ADD_OR_UDPATE_USER_INVESTMENT, {
+    //     $user: user,
+    //     $value: value,
+    //     $rangeValue: diff,
+    //     $stockMIC: stockMIC
+    // }, async (err, result) => {
+    //     console.log(result)
+    //     if (!result) {
+    //         stocks.addStockListener(stockMIC)
+    //         const reply = `I watch stocks on demand, and I do not know ${stockMIC}.
+    //                        Wait a couple seconds, then send a /stock ${stockMIC} to check if it appears.
+    //                        And watch out for market hours, because`
 
-            const reply = `I watch stocks on demand, and I do not know ${stockMIC}.
-                           Wait a couple seconds, then send a /stock ${stockMIC} to check if it appears.
-                           And watch out for market hours, because`
-
-            await core.sendMsg(user, reply)
-        }
-    })
+    //         await bot.sendMsg(user, reply)
+    //     } else {
+    //         await bot.sendMsg(user, `You invested in ${stockMIC} stocks.`)
+    //     }
+    // })
 }
 
 helps.linvest = `
@@ -72,28 +72,18 @@ Examples:
 \`\`\``
 
 commands.linvest = async function (user, args) {
-    var action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
-                  ON investment.stockMIC = stock.MIC WHERE investment.user = ${user}`
-    var reply = 'Here are all your investments\n'
+    args.length = 8
+    args = args.map((MIC) => {
+        return MIC.toUpperCase()
+    })
 
-    // list of investments to look for
-    if (args.length > 0) {
-        const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
-        action = `SELECT investment.*, stock.price FROM investment INNER JOIN stock
-                  ON investment.stockMIC = stock.MIC
-                  WHERE investment.user = ${user} AND stock.MIC IN ${stockMICs}`
-        reply = 'Here are the investments you asked\n'
-    }
-
-    core.dbReturnOrError(action, async (joinResults) => {
-        if (joinResults.length == 0 && args.length == 0) {
-            await core.sendMsg(user, 'You have no investments.')
-        } else if (joinResults.length == 0 && args.length > 0) {
-            await core.sendMsg(user, 'You do not have those investments.')
+    db.each(queries.GET_USER_INVESTMENTS, {
+        $user: user
+    }, async (err, row) => {
+        if (args.indexOf(row.stockMIC) == -1) {
+            await bot.sendMsg(user, `${row.stockMIC} is not listed.`)
         } else {
-            await core.sendMsg(user, joinResults.reduce((msgAcc, row) => {
-                return msgAcc + core.fmtInvestment(row, row.price)
-            }, reply))
+            await bot.sendMsg(user, JSON.stringify(row))
         }
     })
 }
@@ -111,24 +101,25 @@ Examples:
 \`\`\``
 
 commands.dinvest = async function (user, args) {
-    var action = `DELETE FROM investment WHERE user = ${user} RETURNING rowid`
+    var query = `DELETE FROM investment WHERE user = ${user} RETURNING rowid`
     var reply = 'Now all your investments are gone.'
 
     // delete specified investments
     if (args.length > 0) {
         const investments = `('` + args.join(`', '`).toUpperCase() + `')`
-        action = `DELETE FROM investment WHERE stockMIC IN
-                      ${investments} AND user = ${user} RETURNING rowid`
+        query = `
+            DELETE FROM investment WHERE stockMIC IN ${investments}
+                AND user = ${user} RETURNING rowid`
         reply = 'Now those investments are gone.'
     }
 
-    core.dbReturnOrError(action, async (investments) => {
+    core.dbExecOrError('all', query, async (investments) => {
         if (investments.length == 0 && args.length == 0) {
-            await core.sendMsg(user, 'You have no investments to delete.')
+            await bot.sendMsg(user, 'You have no investments to delete.')
         } else if (investments.length == 0 && args.length > 0) {
-            await core.sendMsg(user, 'You do not have those investments.')
+            await bot.sendMsg(user, 'You do not have those investments.')
         } else { // investments.length == args.length -> deleted all investments specified
-            await core.sendMsg(user, reply)
+            await bot.sendMsg(user, reply)
         }
     })
 }
@@ -147,24 +138,22 @@ Examples:
 \`\`\``
 
 commands.stock = async function (user, args) {
-    var action = `SELECT * FROM stock`
-    var reply = 'Here are all stocks that I am aware of```\n'
+    args.length = 8
+    args = args.map((MIC) => {
+        return MIC.toUpperCase()
+    })
 
-    // list of stocks to look for
-    if (args.length > 0) {
-        const stockMICs = `('` + args.join(`, `).toUpperCase() + `')`
-        action = `SELECT * FROM stock WHERE MIC IN ${stockMICs}`
-        reply = 'Here are the stocks you wanted to check```\n'
-    }
-
-    core.dbReturnOrError(action, async (stocks) => {
-        for (const s of stocks) {
-            const fmtMIC = s.MIC.padEnd(4, ' ')
-            const fmtPrice = s.price.toFixed(2)
-            reply += `${fmtMIC} : $${fmtPrice}\n`
+    db.all(queries.GET_STOCKS, async (err, rows) => {
+        for (const row of rows) {
+            const indexInArgs = args.indexOf(row.MIC)
+            if (indexInArgs >= 0) {
+                await bot.sendMsg(user, JSON.stringify(row))
+                args.splice(indexInArgs, 1)
+            }
         }
 
-        await core.sendMsg(user, reply + '```')
+        args = args.join(', ')
+        await bot.send
     })
 }
 
@@ -189,7 +178,7 @@ commands.help = async function (user, args) {
     for (const arg of args) {
         const help = helps[arg.toLowerCase()]
         if (help) {
-            await core.sendMsg(user, help)
+            await bot.sendMsg(user, help)
         }
     }
 }
