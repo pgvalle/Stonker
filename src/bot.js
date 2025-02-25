@@ -14,6 +14,18 @@ async function sendMsg(user, msg) {
     })
 }
 
+// Respond to commands, like /stock.
+function onCmd(callback) {
+    const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+    bot.onText(CMD_REGEX, callback)
+}
+
+// Respond to plain messages
+function onPlainMsg(callback) {
+    const PLAIN_MSG_REGEX = /^(?!\/\S).+/s
+    bot.onText(PLAIN_MSG_REGEX, callback)
+}
+
 module.exports = {
-    bot, sendMsg
+    sendMsg, onCommand, onPlainMsg
 }
