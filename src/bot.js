@@ -27,5 +27,5 @@ function onPlainMsg(callback) {
 }
 
 module.exports = {
-    sendMsg, onCommand, onPlainMsg
+    sendMsg, onCmd, onPlainMsg
 }
