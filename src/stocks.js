@@ -1,8 +1,8 @@
 const { db, queries } = require('./db')
 const bot = require('./bot')
-const sock = require('stocksocket'); // https://github.com/gregtuc/StockSocket
+const sock = require('stocksocket') // https://github.com/gregtuc/StockSocket
 
-// Listener for the given stock
+// Updates stock table each time a new price is know
 function stockUpdater(stock) {
     db.serialize(() => {
         // insert (first time) or update stock in stock table
@@ -23,8 +23,8 @@ function stockUpdater(stock) {
 }
 
 // Listen to a given stock
-function addStockListener(MIC) {
-    sock.addTicker(MIC, stockUpdater)
+function addStock(MIC) {
+    sock.addTicker(MIC.toUpperCase(), stockUpdater)
 }
 
 // Users may try to invest on invalid stocks. That ends up adding invalid listeners.
@@ -41,5 +41,5 @@ function refreshStockListeners() {
 }
 
 module.exports = {
-    addStockListener, refreshStockListeners
+    addStock, refreshStockListeners
 }
