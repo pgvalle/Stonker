@@ -8,7 +8,7 @@ const bot = new TelegramBot(token, {
 
 // send message with markdown formatting
 async function sendMsg(user, str) {
-    await bot.sendMsg(user, str, {
+    await bot.sendMessage(user, str, {
         parse_mode: 'Markdown'
     })
 }
