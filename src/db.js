@@ -37,7 +37,7 @@ queries.CREATE_TRIGGERS = `
         WHERE investment.MIC = NEW.MIC;
     END;`
 
-const MICs = `(SELECT value FROM json_each($MICs))`
+const MICs = `(SELECT upper(value) FROM json_each($MICs))`
 
 queries.GET_ALL_STOCKS = `SELECT * FROM stock`
 queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
@@ -61,7 +61,7 @@ queries.GET_SPECIFIED_USER_INVESTMENTS = `
 
 queries.ADD_OR_UPDATE_STOCK = `
     INSERT INTO stock (MIC, price, time, marketHours)
-    VALUES ($MIC, $price, $time, $marketHours)
+    VALUES (upper($MIC), $price, $time, $marketHours)
     ON CONFLICT (MIC) DO UPDATE SET
         price = $price,
         time = $time,
@@ -69,7 +69,7 @@ queries.ADD_OR_UPDATE_STOCK = `
 
 queries.ADD_OR_UPDATE_INVESTMENT = `
     INSERT OR REPLACE INTO investment (MIC, user, startingValue, value, minValue, maxValue, valueInRange)
-    VALUES ($MIC, $user, $value, $value, $minValue, $maxValue, TRUE)`
+    VALUES (upper($MIC), $user, $value, $value, $minValue, $maxValue, TRUE)`
 
 module.exports = {
     db, queries
