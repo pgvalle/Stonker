@@ -17,7 +17,7 @@ function stockUpdater(stock) {
         db.each(queries.GET_NOTIFY_STOCK_INVESTMENTS, {
             $MIC: stock.id
         }, (err, row) => {
-            bot.sendMsg(row.user, JSON.stringify(row))
+            bot.sendMsg(row.user, row.MIC + ' $' + row.value)
         })
     })
 }
@@ -33,7 +33,7 @@ function refreshStockListeners() {
 
     // If a listener had an entry in stock table, it was valid. Readd it.
     db.each(queries.GET_ALL_STOCKS, (err, row) => {
-        addStockListener(row.MIC)
+        addStock(row.MIC)
     })
 
     // Do this forever
