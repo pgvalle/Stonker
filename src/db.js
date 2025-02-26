@@ -41,7 +41,7 @@ const MICs = `(SELECT upper(value) FROM json_each($MICs))`
 
 queries.GET_ALL_STOCKS = `SELECT * FROM stock`
 queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
-queries.GET_SPECIFIED_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
+queries.GET_SPECIFIC_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
 
 // get investments from which a notification must be generated
 // should notify when min gain or max loss were reached (out of range)
@@ -55,9 +55,14 @@ queries.GET_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE user = $user
     ORDER BY value - startingValue DESC LIMIT $limit`
 
-queries.GET_SPECIFIED_USER_INVESTMENTS = `
+queries.GET_SPECIFIC_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE MIC IN ${MICs} AND user = $user
     ORDER BY value - startingValue DESC LIMIT $limit`
+
+queries.DEL_ALL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user`
+queries.DEL_SPECIFIC_USER_INVESTMENTS = `
+    DELETE FROM investment WHERE user = $user AND MIC IN ${MICs}
+    RETURNING *`
 
 queries.ADD_OR_UPDATE_STOCK = `
     INSERT INTO stock (MIC, price, time, marketHours)

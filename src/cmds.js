@@ -2,10 +2,23 @@ const { db, queries } = require('./db')
 const bot = require('./bot')
 const stocks = require('./stocks')
 
+const listLimit = 8
 const helps = {}
 const cmds = {}
 
-helps.inv = `
+helps.brief = `
+Commands available:
+\`/help\` shows information about a command
+\`/ainv\` adds or overwrites an investment
+\`/cinv\` configures an investment
+\`/linv\` lists up to ${listLimit} investments
+\`/dinv\` deletes investments
+\`/astk\` adds stocks
+\`/lstk\` lists up to ${listLimit} stocks
+
+*TIP:* Try sending \`/help {command}\` and see what happens.`
+
+helps.ainv = `
 /inv STOCK VALUE DIFF
 /inv STOCK VALUE DOWN UP
 \`\`\`
@@ -46,7 +59,7 @@ Examples:
 /dinv AMD TSLA NVDA
 \`\`\``
 
-helps.stk = `
+helps.astk = `
 /stk \\[STOCK ...]
 \`\`\`
 Lists specified stocks and their last known prices.
@@ -59,7 +72,20 @@ Examples:
 /stk AMD TSLA NVDA
 \`\`\``
 
-helps.help = + `
+helps.lstk = `
+/stk \\[STOCK ...]
+\`\`\`
+Lists specified stocks and their last known prices.
+If no arguments are provided, lists all tracked stocks.
+I just know stocks that users have invested with /invest.
+\`\`\`
+Examples:
+\`\`\`
+/stk
+/stk AMD TSLA NVDA
+\`\`\``
+
+helps.help = `
 /help \\[COMMAND ...]
 \`\`\`
 Show help for specified cmds.
@@ -71,144 +97,100 @@ Examples:
 /help help stock
 \`\`\``
 
-function filterFloat(value) {
-    value = parseFloat(value)
-    value = value.toFixed(2)
-    return parseFloat(value)
-}
+cmds.ainv = (user, args) => {
+    const helpy = 'Wrong command syntax. Send `/help ainv` to know more.'
 
-cmds.inv = async (user, args) => {
-    if (args.length < 3 || args.length > 4) {
-        bot.sendMsg(user, 'Wrong command syntax. Send `/help inv`.')
+    if (args.length < 3) {
+        bot.sendMsg(user, helpy)
         return
     }
 
-    const MIC = args[0].toUpperCase()
-    const value = filterFloat(args[1])
-    const diffDn = filterFloat(args[2])
-    const diffUp = (args.length == 3 ? diffDn : filterFloat(args[3]))
+    const MIC = args[0]
+    const value = parseFloat(args[1])
+    const diffDn = parseFloat(args[2])
+    const diffUp = (args.length == 3 ? diffDn : parseFloat(args[3]))
+    const valuesOk = value >= 1 && diffDn >= 0.01 && diffUp >= 0.01
 
-    if (isNaN(value) || isNaN(diffDn) || isNaN(diffUp)) {
-        bot.sendMsg(user, 'The values after the first argument must be numbers.')
-        return
-    }
-
-    if (value < 1 || diffDn < 0.01 || diffUp < 0.01) {
-        bot.sendMsg(user, 'VALUE must be >= $1\nDIFF, DOWN and UP must be > $0.00')
+    if (!valuesOk) {
+        bot.sendMsg(user, helpy)
         return
     }
 
     db.run(queries.ADD_OR_UPDATE_INVESTMENT, {
         $MIC: MIC,
         $user: user,
-        $value: value,
-        $minValue: value - diffDn,
-        $maxValue: value + diffUp
+        $value: value.toFixed(2),
+        $minValue: (value - diffDn).toFixed(2),
+        $maxValue: (value + diffUp).toFixed(2)
     }, (err) => {
-        if (err) { // foreign key constraint violation
-            bot.sendMsg(user, `Try again when \`/stk ${MIC}\` lists ${MIC}.`)
-            stocks.addStockListener(MIC)
+        // foreign key constraint violation -> no stock with that MIC
+        if (err) {
+            bot.sendMsg(user, `I don't know ${MIC}. Send \`/help astk\` to know more.`)
         } else {
             bot.sendMsg(user, `You invested in ${MIC}.`)
         }
     })
 }
 
-cmds.linv = async (user, args) => {
-    if (args.length > 8) {
-        bot.sendMsg(user, `I won't list more than ${8} items at once.`)
-        return
-    }
-    
-    // uppercase all MICs
-    args = args.map((MIC) => {
-        return MIC.toUpperCase()
-    })
-
+cmds.linv = (user, args) => {
     if (args.length == 0) {
         db.each(queries.GET_USER_INVESTMENTS, {
             $user: user,
-            $limit: 8
+            $limit: listLimit
         }, (err, row) => {
-            bot.sendMsg(user, JSON.stringify(row))
+            bot.sendMsg(user, row.MIC + ' $' + row.value)
         })
+    } else {
+        args.length = Math.min(listLimit, args.length)
 
+        db.each(queries.GET_SPECIFIC_USER_INVESTMENTS, {
+            $MICs: JSON.stringify(args),
+            $user: user,
+            $limit: listLimit
+        }, (err, row) => {
+            bot.sendMsg(user, row.MIC + ' $' + row.value)
+        })
+    }
+}
+
+cmds.dinv = (user, args) => {
+    if (args.length == 0) {
+        db.run(queries.DEL_ALL_USER_INVESTMENTS, {
+            $user: user
+        }, (err) => {
+            bot.sendMsg(user, 'Deleted all your investments.')
+        })
+    } else {
+        args.length = Math.min(listLimit, args.length)
+
+        db.each(queries.DEL_SPECIFIC_USER_INVESTMENTS, {
+            $MICs: JSON.stringify(args),
+            $user: user
+        }, (err, row) => {
+            bot.sendMsg(user, `Deleted ${row.MIC} investment`)
+        })
+    }
+}
+
+cmds.astk = (user, args) => {
+    if (args.length == 0) {
+        bot.sendMsg(user, 'Wrong command syntax. Send `/help astk` to know more.')
         return
     }
 
-    db.each(queries.GET_SPECIFIED_USER_INVESTMENTS, {
-        $MICs: JSON.stringify(args),
-        $user: user,
-        $limit: 8
-    }, (err, row) => {
-        bot.sendMsg(user, JSON.stringify(row))
+    // limit number of arguments considered and add stocks
+    args.length = Math.min(listLimit, args.length)
+    args.forEach((arg) => {
+        stocks.addStock(arg)
     })
+
+    bot.sendMsg(user, 'You can only invest in those stocks if `/lstk {stocks}` lists them.')
 }
 
-cmds.dinv = async (user, args) => {
-    // if (args.length == 0) {
-    //     db.get(queries.DEL_USER_INVESTMENTS, {
-    //         $user: user
-    //     }, (err, row) => {
-    //         // log
-    //     })
-
-    //     return
-    // }
-
-    // args.length = 8
-    // args = args.map((MIC) => {
-    //     return MIC.toUpperCase()
-    // })
-
-    // db.all(queries.GET_STOCKS, (err, rows) => {
-    //     for (const row of rows) {
-    //         const index = args.indexOf(row.MIC)
-    //         if (index >= 0) {
-    //             bot.sendMsg(user, JSON.stringify(row))
-    //             args.splice(index, 1)
-    //         }
-    //     }
-
-    //     args = args.join(', ')
-    //     bot.sendMsg(user, args + ' are not listed.')
-    // })
-
-    // // delete specified investments
-    // if (args.length > 0) {
-    //     const investments = `('` + args.join(`', '`).toUpperCase() + `')`
-    //     query = `
-    //         DELETE FROM investment WHERE stockMIC IN ${investments}
-    //             AND user = ${user} RETURNING rowid`
-    //     reply = 'Now those investments are gone.'
-    // }
-
-    // core.dbExecOrError('all', query, async (investments) => {
-    //     if (investments.length == 0 && args.length == 0) {
-    //         await bot.sendMsg(user, 'You have no investments to delete.')
-    //     } else if (investments.length == 0 && args.length > 0) {
-    //         await bot.sendMsg(user, 'You do not have those investments.')
-    //     } else { // investments.length == args.length -> deleted all investments specified
-    //         await bot.sendMsg(user, reply)
-    //     }
-    // })
-}
-
-cmds.stk = (user, args) => {
-    if (args.length > 8) {
-        bot.sendMsg(user, `I won't list more than ${8} items at once.`)
-        return
-    }
-
-    args = args.map((arg) => {
-        arg = arg.toUpperCase()
-        stocks.addStockListener(arg)
-        return arg
-    })
-    
+cmds.lstk = (user, args) => {   
     if (args.length == 0) {
         db.all(queries.GET_STOCKS, {
-            $limit: 8
+            $limit: listLimit
         }, (err, rows) => {
             if (rows.length == 0) {
                 bot.sendMsg(user, 'There are no stock records.')
@@ -218,36 +200,33 @@ cmds.stk = (user, args) => {
                 }
             }
         })
-
-        return
-    }
+    } else {
+        args.length = Math.min(listLimit, args.length)
     
-    db.all(queries.GET_SPECIFIED_STOCKS, {
-        $MICs: JSON.stringify(args),
-        $limit: 8
-    }, (err, rows) => {
-        if (rows.length == 0) {
-            bot.sendMsg(user, 'Those stocks have no records.')
-        } else {
-            for (const row of rows) {
-                bot.sendMsg(user, row.MIC + ' $' + row.price.toFixed(2))
+        db.all(queries.GET_SPECIFIC_STOCKS, {
+            $MICs: JSON.stringify(args),
+            $limit: listLimit
+        }, (err, rows) => {
+            if (rows.length == 0) {
+                bot.sendMsg(user, 'Those stocks have no records.')
+            } else {
+                for (const row of rows) {
+                    bot.sendMsg(user, row.MIC + ' $' + row.price.toFixed(2))
+                }
             }
-        }
-    })
+        })
+    }
 }
 
-cmds.help = async (user, args) => {
+cmds.help = (user, args) => {
     // if no arguments then list all commands
-    if (args.length == 0) {
-        args = Object.keys(commands)
+    if (args.length === 0) {
+        bot.sendMsg(user, helps.brief)
+        return
     }
 
-    for (const arg of args) {
-        const help = helps[arg.toLowerCase()]
-        if (help) {
-            await bot.sendMsg(user, help)
-        }
-    }
+    const name = args[0].toLowerCase()
+    bot.sendMsg(user, helps[name] || `${name} is not a valid command.`)
 }
 
 // exports
