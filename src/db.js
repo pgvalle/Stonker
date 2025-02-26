@@ -20,8 +20,8 @@ queries.CREATE_TABLES = `
         user          INTEGER    NOT NULL,
         startingValue REAL       NOT NULL,
         value         REAL       NOT NULL,
-        maxValue      REAL       NOT NULL,
         minValue      REAL       NOT NULL,
+        maxValue      REAL       NOT NULL,
         valueInRange  INTEGER    NOT NULL,
         PRIMARY KEY (MIC, user),
         FOREIGN KEY (MIC) REFERENCES stock (MIC)
@@ -51,9 +51,12 @@ queries.GET_NOTIFY_STOCK_INVESTMENTS = `
     RETURNING *`
 
 // order by greatest absolute gain
-queries.GET_USER_INVESTMENTS = `SELECT * FROM investment ORDER BY value - startingValue DESC LIMIT $limit`
+queries.GET_USER_INVESTMENTS = `
+    SELECT * FROM investment WHERE user = $user
+    ORDER BY value - startingValue DESC LIMIT $limit`
+
 queries.GET_SPECIFIED_USER_INVESTMENTS = `
-    SELECT * FROM investment WHERE MIC IN ${MICs}
+    SELECT * FROM investment WHERE MIC IN ${MICs} AND user = $user
     ORDER BY value - startingValue DESC LIMIT $limit`
 
 queries.ADD_OR_UPDATE_STOCK = `
