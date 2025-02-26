@@ -6,9 +6,9 @@ const stocks = require('./stocks')
 db.serialize(() => {   
     db.exec(queries.CREATE_TABLES)
     db.exec(queries.CREATE_TRIGGERS)
-})
 
-stocks.refreshStockListeners()
+    stocks.refreshStockListeners()
+})
 
 bot.respondToCmds(cmds)
 bot.respondToPlainMsgs()
