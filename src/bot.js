@@ -1,9 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api') // https://github.com/yagop/node-telegram-bot-api
 
 // get token from environment variable
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-
-const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {
+const token = process.env.TELEGRAM_BOT_TOKEN
+const bot = new TelegramBot(token, {
     polling: true
 })
 
