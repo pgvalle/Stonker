@@ -3,7 +3,7 @@ const bot = require('./bot')
 const stocks = require('./stocks')
 
 const helps = {}
-const commands = {}
+const cmds = {}
 
 helps.inv = `
 /inv STOCK VALUE DIFF
@@ -22,13 +22,62 @@ Examples:
 /invest AMD 1.00 1  # Overwrites previous investment
 \`\`\``
 
+helps.linv = `
+/linv \\[STOCK ...]
+\`\`\`
+Lists your investments in specified stocks.
+If no arguments are provided, lists all investments.
+\`\`\`
+Examples:
+\`\`\`
+/linv
+/linv AMD TSLA NVDA
+\`\`\``
+
+helps.dinv = `
+/dinv \\[STOCK ...]
+\`\`\`
+Deletes your investments in specified stocks.
+If no arguments are provided, deletes all investments.
+\`\`\`
+Examples:
+\`\`\`
+/dinv
+/dinv AMD TSLA NVDA
+\`\`\``
+
+helps.stk = `
+/stk \\[STOCK ...]
+\`\`\`
+Lists specified stocks and their last known prices.
+If no arguments are provided, lists all tracked stocks.
+I just know stocks that users have invested with /invest.
+\`\`\`
+Examples:
+\`\`\`
+/stk
+/stk AMD TSLA NVDA
+\`\`\``
+
+helps.help = + `
+/help \\[COMMAND ...]
+\`\`\`
+Show help for specified cmds.
+Zero arguments shows all helps.
+\`\`\`
+Examples:
+\`\`\`
+/help
+/help help stock
+\`\`\``
+
 function filterFloat(value) {
     value = parseFloat(value)
     value = value.toFixed(2)
     return parseFloat(value)
 }
 
-commands.inv = async function (user, args) {
+cmds.inv = async (user, args) => {
     if (args.length < 3 || args.length > 4) {
         bot.sendMsg(user, 'Wrong command syntax. Send `/help inv`.')
         return
@@ -57,7 +106,7 @@ commands.inv = async function (user, args) {
         $maxValue: value + diffUp
     }, (err) => {
         if (err) { // foreign key constraint violation
-            bot.sendMsg(user, `I'm figuring out ${MIC}. Try again When \`/stk ${MIC}\` lists ${MIC}.`)
+            bot.sendMsg(user, `Try again when \`/stk ${MIC}\` lists ${MIC}.`)
             stocks.addStockListener(MIC)
         } else {
             bot.sendMsg(user, `You invested in ${MIC}.`)
@@ -65,19 +114,7 @@ commands.inv = async function (user, args) {
     })
 }
 
-helps.linv = `
-/linv \\[STOCK ...]
-\`\`\`
-Lists your investments in specified stocks.
-If no arguments are provided, lists all investments.
-\`\`\`
-Examples:
-\`\`\`
-/linv
-/linv AMD TSLA NVDA
-\`\`\``
-
-commands.linv = async function (user, args) {
+cmds.linv = async (user, args) => {
     if (args.length > 8) {
         bot.sendMsg(user, `I won't list more than ${8} items at once.`)
         return
@@ -108,19 +145,7 @@ commands.linv = async function (user, args) {
     })
 }
 
-helps.dinv = `
-/dinv \\[STOCK ...]
-\`\`\`
-Deletes your investments in specified stocks.
-If no arguments are provided, deletes all investments.
-\`\`\`
-Examples:
-\`\`\`
-/dinv
-/dinv AMD TSLA NVDA
-\`\`\``
-
-commands.dinv = async function (user, args) {
+cmds.dinv = async (user, args) => {
     // if (args.length == 0) {
     //     db.get(queries.DEL_USER_INVESTMENTS, {
     //         $user: user
@@ -169,20 +194,7 @@ commands.dinv = async function (user, args) {
     // })
 }
 
-helps.stk = `
-/stk \\[STOCK ...]
-\`\`\`
-Lists specified stocks and their last known prices.
-If no arguments are provided, lists all tracked stocks.
-I just know stocks that users have invested with /invest.
-\`\`\`
-Examples:
-\`\`\`
-/stk
-/stk AMD TSLA NVDA
-\`\`\``
-
-commands.stk = function (user, args) {
+cmds.stk = (user, args) => {
     if (args.length > 8) {
         bot.sendMsg(user, `I won't list more than ${8} items at once.`)
         return
@@ -224,19 +236,7 @@ commands.stk = function (user, args) {
     })
 }
 
-helps.help = + `
-/help \\[COMMAND ...]
-\`\`\`
-Show help for specified commands.
-Zero arguments shows all helps.
-\`\`\`
-Examples:
-\`\`\`
-/help
-/help help stock
-\`\`\``
-
-commands.help = async function (user, args) {
+cmds.help = async (user, args) => {
     // if no arguments then list all commands
     if (args.length == 0) {
         args = Object.keys(commands)
@@ -252,4 +252,4 @@ commands.help = async function (user, args) {
 
 // exports
 
-module.exports = commands
+module.exports = cmds

@@ -7,24 +7,40 @@ const bot = new TelegramBot(token, {
 })
 
 // send message with markdown formatting
-async function sendMsg(user, msg) {
-    await bot.sendMessage(user, msg, {
+async function sendMsg(user, str) {
+    await bot.sendMsg(user, str, {
         parse_mode: 'Markdown'
     })
 }
 
-// Respond to commands, like /stock.
-function onCmd(callback) {
+// Respond commands, like /stock.
+function respondToCmds(cmds) {
     const cmdPattern = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-    bot.onText(cmdPattern, callback)
+
+    bot.onText(cmdPattern, (msg, match) => {
+        const user = msg.chat.id
+        const cmdName = match.groups.name
+        const cmdArgs = match.groups.args?.split(' ') || []
+        const cmd = cmds[cmdName]
+
+        if (cmd) {
+            cmd(user, cmdArgs)
+        } else {
+            sendMsg(user, `What is ${cmdName}? Send a /help.`)
+        }
+    })
 }
 
 // Respond to plain messages
-function onPlainMsg(callback) {
+function respondToPlainMsgs() {
     const plainMsgPattern = /^(?!\/\S).+/s
-    bot.onText(plainMsgPattern, callback)
+
+    bot.onText(plainMsgPattern, (msg, _) => {
+        const user = msg.chat.id
+        sendMsg(msg.chat.id, msg.text)
+    })
 }
 
 module.exports = {
-    sendMsg, onCmd, onPlainMsg
+    sendMsg, respondToCmds, respondToPlainMsgs
 }

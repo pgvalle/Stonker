@@ -35,6 +35,9 @@ function refreshStockListeners() {
     db.each(queries.GET_ALL_STOCKS, (err, row) => {
         addStockListener(row.MIC)
     })
+
+    // Do this forever
+    setTimeout(refreshStockListeners, 30000)
 }
 
 module.exports = {
