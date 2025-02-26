@@ -1,6 +1,14 @@
 const { db, queries } = require('./db')
 const bot = require('./bot')
 const cmds = require('./cmds')
+const stocks = require('./stocks')
+
+db.serialize(() => {   
+    db.exec(queries.CREATE_TABLES)
+    db.exec(queries.CREATE_TRIGGERS)
+
+    stocks.refreshStockListeners()
+})
 
 bot.onCmd(async (msg, match) => {
     const user = msg.chat.id
@@ -9,7 +17,7 @@ bot.onCmd(async (msg, match) => {
     const cmd = cmds[name]
     
     if (cmd) {
-        await cmd(user, args)
+        cmd(user, args)
     } else {
         await bot.sendMsg(user, `What the heck is ${name}? Send a /help bro.`)
     }
