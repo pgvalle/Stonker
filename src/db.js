@@ -3,7 +3,10 @@ const { Database, OPEN_READWRITE, OPEN_CREATE } = require('sqlite3')
 const db = new Database('./stocks.db', OPEN_READWRITE | OPEN_CREATE)
 const queries = {}
 
+// must use db.exec for this one
 queries.CREATE_TABLES = `
+    PRAGMA foreign_keys = ON;
+
     CREATE TABLE IF NOT EXISTS stock (
         MIC         VARCHAR(8)  NOT NULL,
         price       REAL        NOT NULL,
@@ -11,49 +14,59 @@ queries.CREATE_TABLES = `
         marketHours VARCHAR(20) NOT NULL,
         PRIMARY KEY (MIC)
     );
-    
+
     CREATE TABLE IF NOT EXISTS investment (
-        stockMIC      VARCHAR(8) NOT NULL,
+        MIC           VARCHAR(8) NOT NULL,
         user          INTEGER    NOT NULL,
-        refStockPrice REAL       NOT NULL,
+        startingValue REAL       NOT NULL,
         value         REAL       NOT NULL,
-        centerValue   REAL       NOT NULL,
-        rangeValue    REAL       NOT NULL,
-        PRIMARY KEY (stockMIC, user)
+        maxValue      REAL       NOT NULL,
+        minValue      REAL       NOT NULL,
+        valueInRange  INTEGER    NOT NULL,
+        PRIMARY KEY (MIC, user),
+        FOREIGN KEY (MIC) REFERENCES stock (MIC)
     );`
 
-queries.GET_STOCKS = `SELECT * FROM stock`
+// must use db.exec for this one as well
+queries.CREATE_TRIGGERS = `
+    CREATE TRIGGER IF NOT EXISTS updateInvestments
+    AFTER UPDATE ON stock
+    FOR EACH ROW BEGIN
+        UPDATE investment SET
+            value = value * NEW.price / OLD.price
+        WHERE investment.MIC = NEW.MIC;
+    END;`
+
+const MICs = `(SELECT value FROM json_each($MICs))`
+
+queries.GET_ALL_STOCKS = `SELECT * FROM stock`
+queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
+queries.GET_SPECIFIED_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
+
+// get investments from which a notification must be generated
+// should notify when min gain or max loss were reached (out of range)
+queries.GET_NOTIFY_STOCK_INVESTMENTS = `
+    UPDATE investment SET valueInRange = (value - startingValue) BETWEEN minValue AND maxValue
+    WHERE ((value - startingValue) BETWEEN minValue AND maxValue) != valueInRange AND MIC = $MIC
+    RETURNING *`
+
+// order by greatest absolute gain
+queries.GET_USER_INVESTMENTS = `SELECT * FROM investment ORDER BY value - startingValue DESC LIMIT $limit`
+queries.GET_SPECIFIED_USER_INVESTMENTS = `
+    SELECT * FROM investment WHERE MIC IN ${MICs}
+    ORDER BY value - startingValue DESC LIMIT $limit`
 
 queries.ADD_OR_UPDATE_STOCK = `
-    INSERT OR REPLACE INTO stock (MIC, price, time, marketHours)
-    VALUES ($MIC, $price, $time, $marketHours)`
+    INSERT INTO stock (MIC, price, time, marketHours)
+    VALUES ($MIC, $price, $time, $marketHours)
+    ON CONFLICT (MIC) DO UPDATE SET
+        price = $price,
+        time = $time,
+        marketHours = $marketHours`
 
-queries.GET_USER_INVESTMENTS = `
-    SELECT investment.*, stock.price
-    FROM investment INNER JOIN stock ON investment.stockMIC = stock.MIC
-    WHERE investment.user = $user`
-
-queries.ADD_OR_UDPATE_USER_INVESTMENT = `
-    INSERT OR REPLACE INTO investment (stockMIC, user, refStockPrice, value, centerValue, rangeValue)
-    SELECT stock.MIC, $user, stock.price, $value, $value, $rangeValue
-    FROM stock WHERE stock.MIC = $stockMIC
-    RETURNING rowid`
-
-/*
-queries.UPDATE_INVESTMENTS_ON_STOCK = `
-    UPDATE investment SET
-        centerValue = centerValue + CEIL(ABS(
-            ($stockPrice / refStockPrice) * value - centerValue
-        ) / CEIL((2 * rangeValue) / someFactor))
-        * SIGN(
-            ($stockPrice / refStockPrice) * value - centerValue
-        ) * CEIL((2 * rangeValue) / someFactor)
-    WHERE stockMIC = $stockMIC AND ABS(($stockPrice / refStockPrice) * value - centerValue) > rangeValue
-    RETURNING *`
-*/
-
-queries.DEL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user RETURNING rowid`
-queries.DEL_USER_INVESTMENTS_SPECIFIED = `DELETE FROM investment WHERE user = $user AND stockMIC IN ($MICs) RETURNING rowid`
+queries.ADD_OR_UPDATE_INVESTMENT = `
+    INSERT OR REPLACE INTO investment (MIC, user, startingValue, value, minValue, maxValue, valueInRange)
+    VALUES ($MIC, $user, $value, $value, $minValue, $maxValue, TRUE)`
 
 module.exports = {
     db, queries
