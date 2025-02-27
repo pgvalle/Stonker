@@ -6,15 +6,6 @@ const listLimit = 8
 const helps = {}
 const cmds = {}
 
-// format investment
-function fmtInvestment(i) {
-    return i.toString()
-}
-
-function fmtStock(s) {
-    return `${s.MIC} ${s.price} ${s.time} ${s.marketHours}`
-}
-
 helps.brief = `
 Commands available:
 \`/help\` shows information about a command
@@ -220,6 +211,7 @@ cmds.lstk = (user, args) => {
                 bot.sendMsg(user, 'Those stocks have no records.')
             } else {
                 for (const row of rows) {
+                    console.log(row)
                     bot.sendMsg(user, row.MIC + ' $' + row.price.toFixed(2))
                 }
             }

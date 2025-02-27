@@ -40,6 +40,15 @@ function refreshStockListeners() {
     setTimeout(refreshStockListeners, 30000)
 }
 
+// format investment
+function fmtInvestment(i) {
+    return `${i.MIC}`
+}
+
+function fmtStock(s) {
+    return `${s.MIC}`
+}
+
 module.exports = {
-    addStock, refreshStockListeners
+    addStock, refreshStockListeners, fmtInvestment, fmtStock
 }
