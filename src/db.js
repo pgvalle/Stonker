@@ -4,7 +4,7 @@ const db = new Database('./stocks.db', OPEN_READWRITE | OPEN_CREATE)
 const queries = {}
 
 // must use db.exec for this one
-queries.CREATE_TABLES = `
+queries.DB_SETUP = `
     PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS stock (
@@ -25,10 +25,8 @@ queries.CREATE_TABLES = `
         valueInRange  INTEGER    NOT NULL,
         PRIMARY KEY (MIC, user),
         FOREIGN KEY (MIC) REFERENCES stock (MIC)
-    );`
-
-// must use db.exec for this one as well
-queries.CREATE_TRIGGERS = `
+    );
+    
     CREATE TRIGGER IF NOT EXISTS updateInvestments
     AFTER UPDATE ON stock
     FOR EACH ROW BEGIN
