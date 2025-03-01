@@ -15,9 +15,9 @@ async function sendMsg(user, str) {
 
 // Respond commands, like /stock.
 function respondToCmds(cmds) {
-    const cmdPattern = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+    const cmdRegex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 
-    bot.onText(cmdPattern, (msg, match) => {
+    bot.onText(cmdRegex, (msg, match) => {
         const user = msg.chat.id
         const cmdName = match.groups.name
         const cmdArgs = match.groups.args?.split(' ') || []
@@ -32,15 +32,15 @@ function respondToCmds(cmds) {
 }
 
 // Respond to plain messages
-function respondToPlainMsgs() {
-    const plainMsgPattern = /^(?!\/\S).+/s
+function respondToMsgs() {
+    const msgRegex = /^(?!\/\S).+/s
 
-    bot.onText(plainMsgPattern, (msg, _) => {
+    bot.onText(plainMsgRegex, (msg, _) => {
         const user = msg.chat.id
-        sendMsg(msg.chat.id, msg.text)
+        sendMsg(user, msg.text)
     })
 }
 
 module.exports = {
-    sendMsg, respondToCmds, respondToPlainMsgs
+    sendMsg, respondToCmds, respondToMsgs
 }

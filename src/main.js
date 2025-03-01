@@ -11,4 +11,4 @@ db.serialize(() => {
 })
 
 bot.respondToCmds(cmds)
-bot.respondToPlainMsgs()
+bot.respondToMsgs()
