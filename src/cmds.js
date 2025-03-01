@@ -13,10 +13,8 @@ Commands available:
 \`/cinv\` configures an investment
 \`/linv\` lists up to ${listLimit} investments
 \`/dinv\` deletes investments
-\`/astk\` adds stocks
-\`/lstk\` lists up to ${listLimit} stocks
-
-*TIP:* Try sending \`/help {command}\` and see what happens.`
+\`/tstk\` adds stocks
+\`/lstk\` lists up to ${listLimit} stocks`
 
 helps.ainv = `
 /inv STOCK VALUE DIFF
@@ -59,7 +57,7 @@ Examples:
 /dinv AMD TSLA NVDA
 \`\`\``
 
-helps.astk = `
+helps.tstk = `
 /stk \\[STOCK ...]
 \`\`\`
 Lists specified stocks and their last known prices.
@@ -99,7 +97,7 @@ Examples:
 
 cmds.ainv = (user, args) => {
     if (args.length < 3) {
-        bot.sendMsg(user, 'Too few arguments. Send `/help ainv` to know more.')
+        bot.sendMsg(user, 'Give 3 or 4 arguments. See `/help ainv` to know more.')
         return
     }
 
@@ -110,7 +108,7 @@ cmds.ainv = (user, args) => {
     const valuesOk = (value >= 1 && diffDn >= 0.01 && diffUp >= 0.01)
 
     if (!valuesOk) {
-        bot.sendMsg(user, 'Invalid values. Send `/help ainv` to know more.')
+        bot.sendMsg(user, 'Invalid values. See `/help ainv` to know more.')
         return
     }
 
@@ -123,7 +121,7 @@ cmds.ainv = (user, args) => {
     }, (err) => {
         // foreign key constraint violation -> no stock with that MIC
         if (err) {
-            bot.sendMsg(user, `I don't know ${MIC}. Send \`/help astk\` to know more.`)
+            bot.sendMsg(user, `I don't know ${MIC}. See \`/help tstk\` to know more.`)
         } else {
             bot.sendMsg(user, `You invested in ${MIC}.`)
         }
@@ -134,7 +132,7 @@ cmds.linv = (user, args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
 
-    var query = queries.GET_USER_INVESTMENTS
+    var query = queries.GET_SPECIFIC_USER_INVESTMENTS
     const queryParams = {
         $MICs: JSON.stringify(args),
         $user: user,
@@ -142,20 +140,25 @@ cmds.linv = (user, args) => {
     }
 
     if (args.length == 0) {
-        queries.GET_SPECIFIC_USER_INVESTMENTS
+        queries.GET_USER_INVESTMENTS
     }
 
     db.all(query, queryParams, (err, rows) => {
         if (rows.length == 0) {
-            bot.sendMsg(user, 'You have no investments to list.')
+            bot.sendMsg(user, 'You have 0 investments.')
             return
         }
 
         if (rows.length < args.length && args.length > 0) {
-            bot.sendMsg(user, 'Some of those investments don\'t exist, but I did what I could.')
+            // TODO: create a better message
+            bot.sendMsg(user, 'Some investments were not found, but I did what I could.')
         }
 
-        // list everything here
+        const fmtInvestments = rows.reduce((acc, row) => {
+            return acc + stocks.fmtStock(row)
+        }, '')
+
+        bot.sendMsg(user, 'Here they are:\n' + fmtInvestments)
     })
 }
 
@@ -163,32 +166,33 @@ cmds.dinv = (user, args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
 
-    var query = queries.DEL_ALL_USER_INVESTMENTS
+    var query = queries.DEL_SPECIFIC_USER_INVESTMENTS
     const queryParams = {
         $MICs: JSON.stringify(args),
         $user: user
     }
 
     if (args.length == 0) {
-        query = queries.DEL_SPECIFIC_USER_INVESTMENTS
+        query = queries.DEL_ALL_USER_INVESTMENTS
     }
 
     db.all(query, queryParams, (err, rows) => {
         if (rows.length == 0) {
-            bot.sendMsg(user, 'You have no investments to delete.')
+            bot.sendMsg(user, 'You have 0 investments.')
         } else if (rows.length == args.length && args.length > 0) {
-            bot.sendMsg(user, 'Deleted those investments.')
+            bot.sendMsg(user, 'Investments deleted.')
         } else if (args.length == 0) {
-            bot.sendMsg(user, 'Deleted all your investments.')
+            bot.sendMsg(user, 'All investments deleted.')
         } else if (rows.length < args.length) {
-            bot.sendMsg(user, 'Some of those investments don\'t exist, but I did what I could.')
+            // TODO: create a better message
+            bot.sendMsg(user, 'Some of those investments were not found, but the other ones were deleted.')
         }
     })
 }
 
-cmds.astk = (user, args) => {
+cmds.tstk = (user, args) => {
     if (args.length == 0) {
-        bot.sendMsg(user, 'Wrong command syntax. Send `/help astk` to know more.')
+        bot.sendMsg(user, 'Give at least 1 stock to track.')
         return
     }
 
@@ -198,7 +202,8 @@ cmds.astk = (user, args) => {
         stocks.addStock(arg)
     })
 
-    bot.sendMsg(user, 'Now wait a couple seconds and check if `/lstk` shows the stocks you added.')
+    // TODO: create a better message
+    bot.sendMsg(user, 'Wait a couple seconds and check if `/lstk` shows the stocks you added to track.')
 }
 
 cmds.lstk = (user, args) => {
@@ -217,15 +222,20 @@ cmds.lstk = (user, args) => {
 
     db.all(query, queryParams, (err, rows) => {
         if (rows.length == 0) {
-            bot.sendMsg(user, 'There are no stock records')
+            bot.sendMsg(user, 'There are 0 stock being tracked.')
             return
         }
 
         if (rows.length < args.length && args.length > 0) {
+            // TODO: create a better message
             bot.sendMsg(user, 'I\'m not aware of some of those stocks, but I did what I could.')
         }
 
-        // list stocks here
+        const fmtStocks = rows.reduce((acc, row) => {
+            return acc + stocks.fmtStock(row)
+        }, '')
+
+        bot.sendMsg(user, 'Here they are:\n' + fmtStocks)
     })
 }
 
@@ -237,7 +247,7 @@ cmds.help = (user, args) => {
     }
 
     const name = args[0].toLowerCase()
-    bot.sendMsg(user, helps[name] || `${name} is not a valid command.`)
+    bot.sendMsg(user, helps[name] || `${name} isn't a valid command.`)
 }
 
 // export commands
