@@ -59,10 +59,8 @@ queries.GET_SPECIFIC_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE MIC IN ${MICs} AND user = $user
     ORDER BY value - startingValue DESC LIMIT $limit`
 
-queries.DEL_ALL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user`
-queries.DEL_SPECIFIC_USER_INVESTMENTS = `
-    DELETE FROM investment WHERE user = $user AND MIC IN ${MICs}
-    RETURNING *`
+queries.DEL_ALL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user RETURNING *`
+queries.DEL_SPECIFIC_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user AND MIC IN ${MICs} RETURNING *`
 
 queries.ADD_OR_UPDATE_STOCK = `
     INSERT INTO stock (MIC, price, time, marketHours)
