@@ -37,6 +37,7 @@ queries.DB_SETUP = `
 
 const MICs = `(SELECT upper(value) FROM json_each($MICs))`
 
+// TODO: here
 queries.GET_ALL_STOCKS = `SELECT * FROM stock`
 queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
 queries.GET_SPECIFIC_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
