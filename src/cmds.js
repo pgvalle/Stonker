@@ -98,10 +98,8 @@ Examples:
 \`\`\``
 
 cmds.ainv = (user, args) => {
-    const helpy = 'Wrong command syntax. Send `/help ainv` to know more.'
-
     if (args.length < 3) {
-        bot.sendMsg(user, helpy)
+        bot.sendMsg(user, 'Too few arguments. Send `/help ainv` to know more.')
         return
     }
 
@@ -109,10 +107,10 @@ cmds.ainv = (user, args) => {
     const value = parseFloat(args[1])
     const diffDn = parseFloat(args[2])
     const diffUp = (args.length == 3 ? diffDn : parseFloat(args[3]))
-    const valuesOk = value >= 1 && diffDn >= 0.01 && diffUp >= 0.01
+    const valuesOk = (value >= 1 && diffDn >= 0.01 && diffUp >= 0.01)
 
     if (!valuesOk) {
-        bot.sendMsg(user, helpy)
+        bot.sendMsg(user, 'Invalid values. Send `/help ainv` to know more.')
         return
     }
 
@@ -229,7 +227,7 @@ cmds.lstk = (user, args) => {
 
 cmds.help = (user, args) => {
     // if no arguments then list all commands
-    if (args.length === 0) {
+    if (args.length == 0) {
         bot.sendMsg(user, helps.brief)
         return
     }
