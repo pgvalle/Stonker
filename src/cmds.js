@@ -131,24 +131,32 @@ cmds.ainv = (user, args) => {
 }
 
 cmds.linv = (user, args) => {
-    if (args.length == 0) {
-        db.each(queries.GET_USER_INVESTMENTS, {
-            $user: user,
-            $limit: listLimit
-        }, (err, row) => {
-            bot.sendMsg(user, row.MIC + ' $' + row.value)
-        })
-    } else {
-        args.length = Math.min(listLimit, args.length)
+    // limit array length to be at most listLimit
+    args.length = Math.min(listLimit, args.length)
 
-        db.each(queries.GET_SPECIFIC_USER_INVESTMENTS, {
-            $MICs: JSON.stringify(args),
-            $user: user,
-            $limit: listLimit
-        }, (err, row) => {
-            bot.sendMsg(user, row.MIC + ' $' + row.value)
-        })
+    var query = queries.GET_USER_INVESTMENTS
+    const queryParams = {
+        $MICs: JSON.stringify(args),
+        $user: user,
+        $limit: listLimit
     }
+
+    if (args.length == 0) {
+        queries.GET_SPECIFIC_USER_INVESTMENTS
+    }
+
+    db.all(query, queryParams, (err, rows) => {
+        if (rows.length == 0) {
+            bot.sendMsg(user, 'You have no investments to list.')
+            return
+        }
+
+        if (rows.length < args.length && args.length > 0) {
+            bot.sendMsg(user, 'Some of those investments don\'t exist, but I did what I could.')
+        }
+
+        // list everything here
+    })
 }
 
 cmds.dinv = (user, args) => {
@@ -166,14 +174,14 @@ cmds.dinv = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (rows.length == args.length && args.length > 0) {
-            bot.sendMsg(user, 'Deleted all investments you specified.')
-        } else if (rows.length == args.length && args.length == 0) {
+        if (rows.length == 0) {
             bot.sendMsg(user, 'You have no investments to delete.')
+        } else if (rows.length == args.length && args.length > 0) {
+            bot.sendMsg(user, 'Deleted those investments.')
         } else if (args.length == 0) {
             bot.sendMsg(user, 'Deleted all your investments.')
-        } else {
-            bot.sendMsg(user, 'I didn\'t find some of those investments, but I did what I could.')
+        } else if (rows.length < args.length) {
+            bot.sendMsg(user, 'Some of those investments don\'t exist, but I did what I could.')
         }
     })
 }
@@ -193,36 +201,32 @@ cmds.astk = (user, args) => {
     bot.sendMsg(user, 'Now wait a couple seconds and check if `/lstk` shows the stocks you added.')
 }
 
-cmds.lstk = (user, args) => {   
-    if (args.length == 0) {
-        db.all(queries.GET_STOCKS, {
-            $limit: listLimit
-        }, (err, rows) => {
-            if (rows.length == 0) {
-                bot.sendMsg(user, 'There are no stock records.')
-            } else {
-                for (const row of rows) {
-                    bot.sendMsg(user, row.MIC + ' $' + row.price.toFixed(2))
-                }
-            }
-        })
-    } else {
-        args.length = Math.min(listLimit, args.length)
-    
-        db.all(queries.GET_SPECIFIC_STOCKS, {
-            $MICs: JSON.stringify(args),
-            $limit: listLimit
-        }, (err, rows) => {
-            if (rows.length == 0) {
-                bot.sendMsg(user, 'Those stocks have no records.')
-            } else {
-                for (const row of rows) {
-                    console.log(row)
-                    bot.sendMsg(user, row.MIC + ' $' + row.price.toFixed(2))
-                }
-            }
-        })
+cmds.lstk = (user, args) => {
+    // limit array length to be at most listLimit
+    args.length = Math.min(listLimit, args.length)
+
+    var query = queries.GET_STOCKS
+    const queryParams = {
+        $MICs: JSON.stringify(args),
+        $limit: listLimit
     }
+
+    if (args.length == 0) {
+        query = queries.GET_SPECIFIC_STOCKS
+    }
+
+    db.all(query, queryParams, (err, rows) => {
+        if (rows.length == 0) {
+            bot.sendMsg(user, 'There are no stock records')
+            return
+        }
+
+        if (rows.length < args.length && args.length > 0) {
+            bot.sendMsg(user, 'I\'m not aware of some of those stocks, but I did what I could.')
+        }
+
+        // list stocks here
+    })
 }
 
 cmds.help = (user, args) => {
