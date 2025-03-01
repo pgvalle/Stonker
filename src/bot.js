@@ -35,7 +35,7 @@ function respondToCmds(cmds) {
 function respondToMsgs() {
     const msgRegex = /^(?!\/\S).+/s
 
-    bot.onText(plainMsgRegex, (msg, _) => {
+    bot.onText(msgRegex, (msg, _) => {
         const user = msg.chat.id
         sendMsg(user, msg.text)
     })
