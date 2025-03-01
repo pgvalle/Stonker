@@ -33,6 +33,16 @@ Examples:
 /invest AMD 1.00 1  # Overwrites previous investment
 \`\`\``
 
+helps.cinv = `
+/linv \\[STOCK ...]
+\`\`\`
+
+\`\`\`
+Examples:
+\`\`\`
+
+\`\`\``
+
 helps.linv = `
 /linv \\[STOCK ...]
 \`\`\`
@@ -128,6 +138,10 @@ cmds.ainv = (user, args) => {
     })
 }
 
+cmds.cinv = (user, args) => {
+
+}
+
 cmds.linv = (user, args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
@@ -144,7 +158,7 @@ cmds.linv = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (rows.length == 0) {
+        if (!rows) {
             bot.sendMsg(user, 'You have 0 investments.')
             return
         }
@@ -177,7 +191,7 @@ cmds.dinv = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (rows.length == 0) {
+        if (!rows) {
             bot.sendMsg(user, 'You have 0 investments.')
         } else if (rows.length == args.length && args.length > 0) {
             bot.sendMsg(user, 'Investments deleted.')
@@ -221,7 +235,7 @@ cmds.lstk = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (rows.length == 0) {
+        if (!rows) {
             bot.sendMsg(user, 'There are 0 stock being tracked.')
             return
         }
