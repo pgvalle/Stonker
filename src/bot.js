@@ -16,9 +16,19 @@ async function sendMsg(user, str) {
 // Respond commands, like /stock.
 function respondToCmds(cmds) {
     const cmdRegex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+    const timeLastCmd = {}
 
     bot.onText(cmdRegex, (msg, match) => {
         const user = msg.chat.id
+        const now = Date.now();
+
+        if (now - timeLastCmd[user] < 1000) {
+            sendMsg(user, `You're spamming. Stop.`)
+            return
+        }
+
+        timeLastCmd[user] = now
+
         const cmdName = match.groups.name
         const cmdArgs = match.groups.args?.split(' ') || []
         const cmd = cmds[cmdName]
@@ -26,7 +36,7 @@ function respondToCmds(cmds) {
         if (cmd) {
             cmd(user, cmdArgs)
         } else {
-            sendMsg(user, `What is ${cmdName}? Send a /help.`)
+            sendMsg(user, `What is ${cmdName}? See /help.`)
         }
     })
 }
