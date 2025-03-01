@@ -154,22 +154,30 @@ cmds.linv = (user, args) => {
 }
 
 cmds.dinv = (user, args) => {
-    if (args.length == 0) {
-        db.run(queries.DEL_ALL_USER_INVESTMENTS, {
-            $user: user
-        }, (err) => {
-            bot.sendMsg(user, 'Deleted all your investments.')
-        })
-    } else {
-        args.length = Math.min(listLimit, args.length)
+    // limit array length to be at most listLimit
+    args.length = Math.min(listLimit, args.length)
 
-        db.each(queries.DEL_SPECIFIC_USER_INVESTMENTS, {
-            $MICs: JSON.stringify(args),
-            $user: user
-        }, (err, row) => {
-            bot.sendMsg(user, `Deleted ${row.MIC} investment`)
-        })
+    var query = queries.DEL_ALL_USER_INVESTMENTS
+    const queryParams = {
+        $MICs: JSON.stringify(args),
+        $user: user
     }
+
+    if (args.length == 0) {
+        query = queries.DEL_SPECIFIC_USER_INVESTMENTS
+    }
+
+    db.all(query, queryParams, (err, rows) => {
+        if (rows.length == args.length && args.length > 0) {
+            bot.sendMsg(user, 'Deleted all investments you specified.')
+        } else if (rows.length == args.length && args.length == 0) {
+            bot.sendMsg(user, 'You have no investments to delete.')
+        } else if (args.length == 0) {
+            bot.sendMsg(user, 'Deleted all your investments.')
+        } else {
+            bot.sendMsg(user, 'I didn\'t find some of those investments, but I did what I could.')
+        }
+    })
 }
 
 cmds.astk = (user, args) => {
@@ -178,13 +186,13 @@ cmds.astk = (user, args) => {
         return
     }
 
-    // limit number of arguments considered and add stocks
+    // limit number of stocks to add then add
     args.length = Math.min(listLimit, args.length)
     args.forEach((arg) => {
         stocks.addStock(arg)
     })
 
-    bot.sendMsg(user, 'You can only invest in those stocks if `/lstk {stocks}` lists them.')
+    bot.sendMsg(user, 'Now wait a couple seconds and check if `/lstk` shows the stocks you added.')
 }
 
 cmds.lstk = (user, args) => {   
@@ -230,6 +238,6 @@ cmds.help = (user, args) => {
     bot.sendMsg(user, helps[name] || `${name} is not a valid command.`)
 }
 
-// exports
+// export commands
 
 module.exports = cmds
