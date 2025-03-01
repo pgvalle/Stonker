@@ -158,7 +158,7 @@ cmds.linv = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (!rows) {
+        if (!rows || rows.length == 0) {
             bot.sendMsg(user, 'You have 0 investments.')
             return
         }
@@ -191,7 +191,7 @@ cmds.dinv = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (!rows) {
+        if (!rows || rows.length == 0) {
             bot.sendMsg(user, 'You have 0 investments.')
         } else if (rows.length == args.length && args.length > 0) {
             bot.sendMsg(user, 'Investments deleted.')
@@ -235,12 +235,12 @@ cmds.lstk = (user, args) => {
     }
 
     db.all(query, queryParams, (err, rows) => {
-        if (!rows) {
-            bot.sendMsg(user, 'There are 0 stock being tracked.')
+        if (!rows || rows.length == 0) {
+            bot.sendMsg(user, 'There are 0 stocks being tracked.')
             return
         }
 
-        if (rows.length < args.length && args.length > 0) {
+        if (rows.length < args.length) {
             // TODO: create a better message
             bot.sendMsg(user, 'I\'m not aware of some of those stocks, but I did what I could.')
         }
