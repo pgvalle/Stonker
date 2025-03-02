@@ -94,7 +94,7 @@ The bot supports the following commands:
 
 ## Motivation
 
-A realization hit me after playing a little bit with the stocks market and talking to friends: Either you are extremely lucky, have privileged information or can monitor stock price changes every second. But I bet you are none of those, just like me. So here is Stonker to help you.
+A realization hit me after playing a little bit with the stock market and talking to friends: Either you are extremely lucky, privileged with relevant information or have time monitor stock prices every second. But I bet you are none of those, just like me. So here is Stonker to help you.
 
 ## The Journey
 
@@ -104,9 +104,9 @@ Another challenge was structuring the code. I started with everything in a singl
 
 ## Technology Stack
 
-- **SQLite3** - I wanted a lightweight database, so SQLite fit well for this project.
+- **SQLite3** - Some of my requirements demanded persistence, and the way i thought of structuring the data lead me to think of sql databases. Besides, it is best to use a solid technology (and lightweight in my case) that already does the heavylifting of data manipulation for you.
 - **NodeJS** - Although I'm not a big fan of javascript, it's widely used, and I wanted to improve my portfolio.
-- **[yagop/node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)** - Initially, I considered WhatsApp but found both its official and unofficial APIs bad fits for this project (You need to create a meta developer account or to have a spare phone number). Telegram turned out to be a really good option.
+- **[yagop/node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)** - Initially, I considered WhatsApp, because here in Brazil **EVERYONE** has a Whatsapp account. But its official and unofficial APIs required stuff like creating a meta developer account or having a spare phone number (to have a chat with myself). Telegram turned out to be a way better option.
 - **[gregtuc/StockSocket](https://github.com/gregtuc/StockSocket)** - Provides real-time stock data updates via websockets. It's archived, but it works.
 
 ## Future Improvements
