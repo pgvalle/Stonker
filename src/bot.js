@@ -16,17 +16,17 @@ async function sendMsg(user, str) {
 // Respond commands, like /stock.
 function respondToCmds(cmds) {
     const cmdRegex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-    const spamDelta = 2000
+    const spamDelta = 2
     const timeLastCmd = {}
 
     bot.onText(cmdRegex, (msg, match) => {
         const user = msg.chat.id
-        const now = Date.now()
+        const now = 0.001 * Date.now()
         const delta = now - timeLastCmd[user]
 
         if (delta < spamDelta) {
-            const waitDelta = 0.001 * (spamDelta - delta)
-            sendMsg(user, `Wait ${waitDelta.toFixed(1)} seconds to send another command.`)
+            const fmtWaitDelta = (spamDelta - delta).toFixed(1)
+            sendMsg(user, `Wait ${fmtWaitDelta} seconds to send another command.`)
             return
         }
 
