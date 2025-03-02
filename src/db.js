@@ -27,7 +27,7 @@ queries.DB_SETUP = `
         FOREIGN KEY (MIC) REFERENCES stock (MIC)
     );
     
-    CREATE TRIGGER IF NOT EXISTS updateInvestments
+    CREATE TRIGGER IF NOT EXISTS updateInvestmentValue
     AFTER UPDATE ON stock
     FOR EACH ROW BEGIN
         UPDATE investment SET
@@ -52,11 +52,11 @@ queries.GET_NOTIFY_STOCK_INVESTMENTS = `
 // order by greatest absolute gain
 queries.GET_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE user = $user
-    ORDER BY value - firstValue  DESC LIMIT $limit`
+    ORDER BY value - firstValue DESC LIMIT $limit`
 
 queries.GET_SPECIFIC_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE MIC IN ${MICs} AND user = $user
-    ORDER BY value - firstValue  DESC LIMIT $limit`
+    ORDER BY value - firstValue DESC LIMIT $limit`
 
 queries.DEL_ALL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user RETURNING *`
 queries.DEL_SPECIFIC_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user AND MIC IN ${MICs} RETURNING *`
