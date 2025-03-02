@@ -10,7 +10,7 @@ helps.brief = `
 Commands available:
 \`/help\` shows information about a command
 \`/ainv\` adds or overwrites an investment
-\`/cinv\` configures an investment
+\`/einv\` edits an investment
 \`/linv\` lists up to ${listLimit} investments
 \`/dinv\` deletes investments
 \`/tstk\` adds stocks
@@ -33,7 +33,7 @@ Examples:
 /invest AMD 1.00 1  # Overwrites previous investment
 \`\`\``
 
-helps.cinv = `
+helps.einv = `
 /linv \\[STOCK ...]
 \`\`\`
 
@@ -138,7 +138,7 @@ cmds.ainv = (user, args) => {
     })
 }
 
-cmds.cinv = (user, args) => {
+cmds.einv = (user, args) => {
 
 }
 
@@ -148,7 +148,7 @@ cmds.linv = (user, args) => {
 
     var query = queries.GET_SPECIFIC_USER_INVESTMENTS
     const queryParams = {
-        $MICs: JSON.stringify(args),
+        $MICs: JSON.stringify(args), // specific investments to get
         $user: user,
         $limit: listLimit
     }
@@ -182,7 +182,7 @@ cmds.dinv = (user, args) => {
 
     var query = queries.DEL_SPECIFIC_USER_INVESTMENTS
     const queryParams = {
-        $MICs: JSON.stringify(args),
+        $MICs: JSON.stringify(args), // specific investments to get
         $user: user
     }
 

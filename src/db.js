@@ -16,13 +16,13 @@ queries.DB_SETUP = `
     );
 
     CREATE TABLE IF NOT EXISTS investment (
-        MIC           VARCHAR(8) NOT NULL,
-        user          INTEGER    NOT NULL,
-        startingValue REAL       NOT NULL,
-        value         REAL       NOT NULL,
-        minValue      REAL       NOT NULL,
-        maxValue      REAL       NOT NULL,
-        valueInRange  INTEGER    NOT NULL,
+        MIC          VARCHAR(8) NOT NULL,
+        user         INTEGER    NOT NULL,
+        firstValue   REAL       NOT NULL,
+        value        REAL       NOT NULL,
+        minValue     REAL       NOT NULL,
+        maxValue     REAL       NOT NULL,
+        valueInRange INTEGER    NOT NULL,
         PRIMARY KEY (MIC, user),
         FOREIGN KEY (MIC) REFERENCES stock (MIC)
     );
@@ -45,18 +45,18 @@ queries.GET_SPECIFIC_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY
 // get investments from which a notification must be generated
 // should notify when min gain or max loss were reached (out of range)
 queries.GET_NOTIFY_STOCK_INVESTMENTS = `
-    UPDATE investment SET valueInRange = (value - startingValue) BETWEEN minValue AND maxValue
-    WHERE ((value - startingValue) BETWEEN minValue AND maxValue) != valueInRange AND MIC = $MIC
+    UPDATE investment SET valueInRange = (value - firstValue ) BETWEEN minValue AND maxValue
+    WHERE ((value - firstValue) BETWEEN minValue AND maxValue) != valueInRange AND MIC = $MIC
     RETURNING *`
 
 // order by greatest absolute gain
 queries.GET_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE user = $user
-    ORDER BY value - startingValue DESC LIMIT $limit`
+    ORDER BY value - firstValue  DESC LIMIT $limit`
 
 queries.GET_SPECIFIC_USER_INVESTMENTS = `
     SELECT * FROM investment WHERE MIC IN ${MICs} AND user = $user
-    ORDER BY value - startingValue DESC LIMIT $limit`
+    ORDER BY value - firstValue  DESC LIMIT $limit`
 
 queries.DEL_ALL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user RETURNING *`
 queries.DEL_SPECIFIC_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user AND MIC IN ${MICs} RETURNING *`
@@ -70,7 +70,7 @@ queries.ADD_OR_UPDATE_STOCK = `
         marketHours = $marketHours`
 
 queries.ADD_OR_UPDATE_INVESTMENT = `
-    INSERT OR REPLACE INTO investment (MIC, user, startingValue, value, minValue, maxValue, valueInRange)
+    INSERT OR REPLACE INTO investment (MIC, user, firstValue , value, minValue, maxValue, valueInRange)
     VALUES (upper($MIC), $user, $value, $value, $minValue, $maxValue, TRUE)`
 
 module.exports = {
