@@ -17,13 +17,12 @@ queries.DB_SETUP = `
 
     CREATE TABLE IF NOT EXISTS investment (
         MIC          VARCHAR(8) NOT NULL,
-        user         INTEGER    NOT NULL,
         firstValue   REAL       NOT NULL,
         value        REAL       NOT NULL,
         minValue     REAL       NOT NULL,
         maxValue     REAL       NOT NULL,
         valueInRange INTEGER    NOT NULL,
-        PRIMARY KEY (MIC, user),
+        PRIMARY KEY (MIC),
         FOREIGN KEY (MIC) REFERENCES stock (MIC)
     );
     
@@ -50,16 +49,14 @@ queries.GET_NOTIFY_STOCK_INVESTMENTS = `
     RETURNING *`
 
 // order by greatest absolute gain
-queries.GET_USER_INVESTMENTS = `
-    SELECT * FROM investment WHERE user = $user
+queries.GET_INVESTMENTS = `SELECT * FROM investment ORDER BY value - firstValue DESC LIMIT $limit`
+
+queries.GET_SPECIFIC_INVESTMENTS = `
+    SELECT * FROM investment WHERE MIC IN ${MICs}
     ORDER BY value - firstValue DESC LIMIT $limit`
 
-queries.GET_SPECIFIC_USER_INVESTMENTS = `
-    SELECT * FROM investment WHERE MIC IN ${MICs} AND user = $user
-    ORDER BY value - firstValue DESC LIMIT $limit`
-
-queries.DEL_ALL_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user RETURNING *`
-queries.DEL_SPECIFIC_USER_INVESTMENTS = `DELETE FROM investment WHERE user = $user AND MIC IN ${MICs} RETURNING *`
+queries.DEL_ALL_INVESTMENTS = `DELETE FROM investment RETURNING *`
+queries.DEL_SPECIFIC_INVESTMENTS = `DELETE FROM investment WHERE MIC IN ${MICs} RETURNING *`
 
 queries.ADD_OR_UPDATE_STOCK = `
     INSERT INTO stock (MIC, price, time, marketHours)
@@ -70,8 +67,8 @@ queries.ADD_OR_UPDATE_STOCK = `
         marketHours = $marketHours`
 
 queries.ADD_OR_UPDATE_INVESTMENT = `
-    INSERT OR REPLACE INTO investment (MIC, user, firstValue , value, minValue, maxValue, valueInRange)
-    VALUES (upper($MIC), $user, $value, $value, $minValue, $maxValue, TRUE)`
+    INSERT OR REPLACE INTO investment (MIC, firstValue, value, minValue, maxValue, valueInRange)
+    VALUES (upper($MIC), $value, $value, $minValue, $maxValue, TRUE)`
 
 module.exports = {
     db, queries
