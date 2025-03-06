@@ -3,7 +3,10 @@ const { Database, OPEN_READWRITE, OPEN_CREATE } = require('sqlite3')
 const db = new Database('./stocks.db', OPEN_READWRITE | OPEN_CREATE)
 const queries = {}
 
-// setup database
+// ============================================================================
+// DB SETUP
+// ============================================================================
+
 db.exec(`
     PRAGMA foreign_keys = ON;
 
@@ -35,11 +38,15 @@ db.exec(`
     END;`
 )
 
+// ============================================================================
 // QUERIES
+// ============================================================================
 
+// subquery
 const MICs = `(SELECT upper(value) FROM json_each($MICs))`
 
-queries.GET_ALL_STOCKS = `SELECT * FROM stock`
+// order stocks by price
+queries.GET_ALL_STOCKS = `SELECT * FROM stock ORDER BY price DESC`
 queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
 queries.GET_SPECIFIC_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
 
@@ -53,7 +60,6 @@ queries.ADD_OR_UPDATE_STOCK = `
 
 // order by greatest absolute gain
 queries.GET_INVESTMENTS = `SELECT * FROM investment ORDER BY value - firstValue DESC LIMIT $limit`
-
 queries.GET_SPECIFIC_INVESTMENTS = `
     SELECT * FROM investment WHERE MIC IN ${MICs}
     ORDER BY value - firstValue DESC LIMIT $limit`
