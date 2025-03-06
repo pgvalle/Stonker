@@ -6,40 +6,53 @@ const bot = new TelegramBot(token, {
     polling: true
 })
 
-// only respond to the user that sent the first message
-const user = {
+// only one user
+const mommy = {
     id: undefined,
     timeLastCmd: 0
 }
 
+// the user is going to be the one that sent the first message
+function imprint(msg) {
+    const id = msg.chat.id
+
+    if (!mommy.id) {
+        mommy.id = id
+        sendMsg('Mommyyyyyyyyyyyyyyyy.')
+    } else if (mommy.id != id) {
+        sendMsg('Mommy, a stranger tried to talk to me.')
+    }
+}
+
 // send message with markdown formatting
 async function sendMsg(str) {
-    await bot.sendMessage(user.id, str, {
+    await bot.sendMessage(mommy.id, str, {
         parse_mode: 'Markdown'
     })
 }
 
-// Respond commands, like /stock.
-function respondToCmd(cmds) {
+function setupResponses(cmds) {
+    const msgRegex = /^(?!\/\S).+/s
+
+    // respond to normal messages with this callback
+    bot.onText(msgRegex, (msg, _) => {
+        imprint(msg)
+        sendMsg(msg.text)
+    })
+
     const cmdRegex = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-    const spamDelta = 2
+    const cmdSpamDelta = 2
 
+    // Respond commands, like /stock, with this callback
     bot.onText(cmdRegex, (msg, match) => {
-        // remember first user that sent message
-        if (!user.id) {
-            user.id = msg.chat.id
-            console.log('Assigned user.')
-        }
+        imprint(msg)
 
-        // calculate time since last command
-        const now = 0.001 * Date.now()
-        const delta = now - user.timeLastCmd
-        user.timeLastCmd = now
+        const timenow = 0.001 * Date.now()
+        const time2wait = cmdSpamDelta - (timenow - user.timeLastCmd)
+        user.timeLastCmd = timenow
 
-        // prevent spams
-        if (delta < spamDelta) {
-            const fmtTimeWait = (spamDelta - delta).toFixed(1)
-            sendMsg(`Wait ${fmtTimeWait}s to send another command.`)
+        if (time2wait > 0) {
+            sendMsg(`Wait ${time2wait.toFixed(1)}s to send another command.`)
             return
         }
 
@@ -55,16 +68,6 @@ function respondToCmd(cmds) {
     })
 }
 
-// Respond to plain messages
-function respondToMsg() {
-    const msgRegex = /^(?!\/\S).+/s
-
-    bot.onText(msgRegex, (msg, _) => {
-        const user = msg.chat.id
-        sendMsg(msg.text)
-    })
-}
-
 module.exports = {
-    sendMsg, respondToCmd, respondToMsg
+    sendMsg, setupResponses
 }
