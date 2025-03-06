@@ -4,14 +4,14 @@ const sock = require('stocksocket') // https://github.com/gregtuc/StockSocket
 
 // Updates stock table each time a new price is know
 function stockUpdater(stock) {
-    db.serialize(() => {
-        const queryParams = {
-            $MIC: stock.id,
-            $price: stock.price,
-            $time:  stock.time,
-            $marketHours: stock.marketHours
-        }
+    const queryParams = {
+        $MIC: stock.id,
+        $price: stock.price,
+        $time:  stock.time,
+        $marketHours: stock.marketHours
+    }
 
+    db.serialize(() => {
         // insert (first time) or update stock in stock table
         // use all fields of queryParams
         db.run(queries.ADD_OR_UPDATE_STOCK, queryParams)
