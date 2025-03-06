@@ -105,9 +105,9 @@ Examples:
 /help help stock
 \`\`\``
 
-cmds.ainv = (user, args) => {
+cmds.ainv = (args) => {
     if (args.length < 3) {
-        bot.sendMsg(user, 'Give 3 or 4 arguments. See `/help ainv` to know more.')
+        bot.sendMsg('Give 3 or 4 arguments. See `/help ainv` to know more.')
         return
     }
 
@@ -118,95 +118,92 @@ cmds.ainv = (user, args) => {
     const valuesOk = (value >= 1 && diffDn >= 0.01 && diffUp >= 0.01)
 
     if (!valuesOk) {
-        bot.sendMsg(user, 'Invalid values. See `/help ainv` to know more.')
+        bot.sendMsg('Invalid values. See `/help ainv` to know more.')
         return
     }
 
     db.run(queries.ADD_OR_UPDATE_INVESTMENT, {
         $MIC: MIC,
-        $user: user,
         $value: value.toFixed(2),
         $minValue: (value - diffDn).toFixed(2),
         $maxValue: (value + diffUp).toFixed(2)
     }, (err) => {
         // foreign key constraint violation -> no stock with that MIC
         if (err) {
-            bot.sendMsg(user, `I don't know ${MIC}. See \`/help tstk\` to know more.`)
+            bot.sendMsg(`I don't know ${MIC}. See \`/help tstk\` to know more.`)
         } else {
-            bot.sendMsg(user, `You invested in ${MIC}.`)
+            bot.sendMsg(`You invested in ${MIC}.`)
         }
     })
 }
 
-cmds.einv = (user, args) => {
+cmds.einv = (args) => {
 
 }
 
-cmds.linv = (user, args) => {
+cmds.linv = (args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
 
-    var query = queries.GET_SPECIFIC_USER_INVESTMENTS
+    var query = queries.GET_SPECIFIC_INVESTMENTS
     const queryParams = {
         $MICs: JSON.stringify(args), // specific investments to get
-        $user: user,
         $limit: listLimit
     }
 
     if (args.length == 0) {
-        queries.GET_USER_INVESTMENTS
+        query = queries.GET_INVESTMENTS
     }
 
-    db.all(query, queryParams, (err, rows) => {
+    db.all(query, queryParams, (_, rows) => {
         if (!rows || rows.length == 0) {
-            bot.sendMsg(user, 'You have 0 investments.')
+            bot.sendMsg('You have 0 investments.')
             return
         }
 
         if (rows.length < args.length && args.length > 0) {
             // TODO: create a better message
-            bot.sendMsg(user, 'Some investments were not found, but I did what I could.')
+            bot.sendMsg('Some investments were not found, but I did what I could.')
         }
 
         const fmtInvestments = rows.reduce((acc, row) => {
             return acc + stocks.fmtStock(row)
         }, '')
 
-        bot.sendMsg(user, 'Here they are:\n' + fmtInvestments)
+        bot.sendMsg('Here they are:\n' + fmtInvestments)
     })
 }
 
-cmds.dinv = (user, args) => {
+cmds.dinv = (args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
 
-    var query = queries.DEL_SPECIFIC_USER_INVESTMENTS
+    var query = queries.DEL_SPECIFIC_INVESTMENTS
     const queryParams = {
-        $MICs: JSON.stringify(args), // specific investments to get
-        $user: user
+        $MICs: JSON.stringify(args) // specific investments to get
     }
 
     if (args.length == 0) {
-        query = queries.DEL_ALL_USER_INVESTMENTS
+        query = queries.DEL_ALL_INVESTMENTS
     }
 
-    db.all(query, queryParams, (err, rows) => {
+    db.all(query, queryParams, (_, rows) => {
         if (!rows || rows.length == 0) {
-            bot.sendMsg(user, 'You have 0 investments.')
+            bot.sendMsg('You have 0 investments.')
         } else if (rows.length == args.length && args.length > 0) {
-            bot.sendMsg(user, 'Investments deleted.')
+            bot.sendMsg('Investments deleted.')
         } else if (args.length == 0) {
-            bot.sendMsg(user, 'All investments deleted.')
+            bot.sendMsg('All investments deleted.')
         } else if (rows.length < args.length) {
             // TODO: create a better message
-            bot.sendMsg(user, 'Some of those investments were not found, but the other ones were deleted.')
+            bot.sendMsg('Some of those investments were not found, but the other ones were deleted.')
         }
     })
 }
 
-cmds.tstk = (user, args) => {
+cmds.tstk = (args) => {
     if (args.length == 0) {
-        bot.sendMsg(user, 'Give at least 1 stock to track.')
+        bot.sendMsg('Give at least 1 stock to track.')
         return
     }
 
@@ -217,10 +214,10 @@ cmds.tstk = (user, args) => {
     })
 
     // TODO: create a better message
-    bot.sendMsg(user, 'Wait a couple seconds and check if `/lstk` shows the stocks you added to track.')
+    bot.sendMsg('Wait a couple seconds and check if `/lstk` shows the stocks you added to track.')
 }
 
-cmds.lstk = (user, args) => {
+cmds.lstk = (args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
 
@@ -234,34 +231,34 @@ cmds.lstk = (user, args) => {
         query = queries.GET_SPECIFIC_STOCKS
     }
 
-    db.all(query, queryParams, (err, rows) => {
+    db.all(query, queryParams, (_, rows) => {
         if (!rows || rows.length == 0) {
-            bot.sendMsg(user, 'There are 0 stocks being tracked.')
+            bot.sendMsg('There are 0 stocks being tracked.')
             return
         }
 
         if (rows.length < args.length) {
             // TODO: create a better message
-            bot.sendMsg(user, 'I\'m not aware of some of those stocks, but I did what I could.')
+            bot.sendMsg('I\'m not aware of some of those stocks, but I did what I could.')
         }
 
         const fmtStocks = rows.reduce((acc, row) => {
             return acc + stocks.fmtStock(row)
         }, '')
 
-        bot.sendMsg(user, 'Here they are:\n' + fmtStocks)
+        bot.sendMsg('Here they are:\n' + fmtStocks)
     })
 }
 
-cmds.help = (user, args) => {
+cmds.help = (args) => {
     // if no arguments then list all commands
     if (args.length == 0) {
-        bot.sendMsg(user, helps.brief)
+        bot.sendMsg(helps.brief)
         return
     }
 
     const name = args[0].toLowerCase()
-    bot.sendMsg(user, helps[name] || `${name} isn't a valid command.`)
+    bot.sendMsg(helps[name] || `${name} isn't a valid command.`)
 }
 
 // export commands
