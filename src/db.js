@@ -3,8 +3,8 @@ const { Database, OPEN_READWRITE, OPEN_CREATE } = require('sqlite3')
 const db = new Database('./stocks.db', OPEN_READWRITE | OPEN_CREATE)
 const queries = {}
 
-// must use db.exec for this one
-queries.DB_SETUP = `
+// setup database
+db.exec(`
     PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS stock (
@@ -33,10 +33,12 @@ queries.DB_SETUP = `
             value = value * NEW.price / OLD.price
         WHERE investment.MIC = NEW.MIC;
     END;`
+)
+
+// QUERIES
 
 const MICs = `(SELECT upper(value) FROM json_each($MICs))`
 
-// TODO: here
 queries.GET_ALL_STOCKS = `SELECT * FROM stock`
 queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
 queries.GET_SPECIFIC_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
