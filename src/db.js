@@ -23,7 +23,7 @@ queries.DB_SETUP = `
         maxValue     REAL       NOT NULL,
         valueInRange INTEGER    NOT NULL,
         PRIMARY KEY (MIC),
-        FOREIGN KEY (MIC) REFERENCES stock (MIC)
+        FOREIGN KEY (MIC) REFERENCES stock (MIC) ON DELETE CASCASE
     );
     
     CREATE TRIGGER IF NOT EXISTS updateInvestmentValue
