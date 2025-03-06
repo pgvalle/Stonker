@@ -8,5 +8,5 @@ db.serialize(() => {
     stocks.refreshStockListeners()
 })
 
-bot.respondToCmds(cmds)
-bot.respondToMsgs()
+bot.respondToCmd(cmds)
+bot.respondToMsg()
