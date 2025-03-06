@@ -5,7 +5,7 @@ const sock = require('stocksocket') // https://github.com/gregtuc/StockSocket
 // Updates stock table each time a new price is know
 function stockUpdater(stock) {
     db.serialize(() => {
-        const params = {
+        const queryParams = {
             $MIC: stock.id,
             $price: stock.price,
             $time:  stock.time,
@@ -13,12 +13,12 @@ function stockUpdater(stock) {
         }
 
         // insert (first time) or update stock in stock table
-        // use all fields of params
-        db.run(queries.ADD_OR_UPDATE_STOCK, params)
+        // use all fields of queryParams
+        db.run(queries.ADD_OR_UPDATE_STOCK, queryParams)
 
         // notify user if min gain or max loss were reached (out of range)
         // only use $MIC
-        db.each(queries.GET_NOTIFY_STOCK_INVESTMENTS, params, (_, row) => {
+        db.each(queries.GET_NOTIFY_STOCK_INVESTMENTS, queryParams, (_, row) => {
             bot.sendMsg(row.MIC + ' $' + row.value)
         })
     })
