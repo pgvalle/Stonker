@@ -41,12 +41,13 @@ queries.GET_ALL_STOCKS = `SELECT * FROM stock`
 queries.GET_STOCKS = `SELECT * FROM stock ORDER BY price DESC LIMIT $limit`
 queries.GET_SPECIFIC_STOCKS = `SELECT * FROM stock WHERE MIC IN ${MICs} ORDER BY price DESC LIMIT $limit`
 
-// get investments from which a notification must be generated
-// should notify when min gain or max loss were reached (out of range)
-queries.GET_NOTIFY_STOCK_INVESTMENTS = `
-    UPDATE investment SET valueInRange = (value - firstValue ) BETWEEN minValue AND maxValue
-    WHERE ((value - firstValue) BETWEEN minValue AND maxValue) != valueInRange AND MIC = $MIC
-    RETURNING *`
+queries.ADD_OR_UPDATE_STOCK = `
+    INSERT INTO stock (MIC, price, time, marketHours)
+    VALUES (upper($MIC), $price, $time, $marketHours)
+    ON CONFLICT (MIC) DO UPDATE SET
+        price = $price,
+        time = $time,
+        marketHours = $marketHours`
 
 // order by greatest absolute gain
 queries.GET_INVESTMENTS = `SELECT * FROM investment ORDER BY value - firstValue DESC LIMIT $limit`
@@ -58,17 +59,16 @@ queries.GET_SPECIFIC_INVESTMENTS = `
 queries.DEL_ALL_INVESTMENTS = `DELETE FROM investment RETURNING *`
 queries.DEL_SPECIFIC_INVESTMENTS = `DELETE FROM investment WHERE MIC IN ${MICs} RETURNING *`
 
-queries.ADD_OR_UPDATE_STOCK = `
-    INSERT INTO stock (MIC, price, time, marketHours)
-    VALUES (upper($MIC), $price, $time, $marketHours)
-    ON CONFLICT (MIC) DO UPDATE SET
-        price = $price,
-        time = $time,
-        marketHours = $marketHours`
-
 queries.ADD_OR_UPDATE_INVESTMENT = `
     INSERT OR REPLACE INTO investment (MIC, firstValue, value, minValue, maxValue, valueInRange)
     VALUES (upper($MIC), $value, $value, $minValue, $maxValue, TRUE)`
+
+// get investments from which a notification must be generated
+// should notify when min gain or max loss were reached (out of range)
+queries.GET_NOTIFY_STOCK_INVESTMENTS = `
+    UPDATE investment SET valueInRange = (value - firstValue ) BETWEEN minValue AND maxValue
+    WHERE ((value - firstValue) BETWEEN minValue AND maxValue) != valueInRange AND MIC = $MIC
+    RETURNING *`
 
 module.exports = {
     db, queries
