@@ -48,5 +48,6 @@ function fmtStock(s) {
 }
 
 module.exports = {
-    listenStock, refreshStockListeners, fmtInvestment, fmtStock
+    listenStock, refreshStockListeners,
+    fmtInvestment, fmtStock
 }

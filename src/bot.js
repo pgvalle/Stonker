@@ -14,11 +14,28 @@ function sendMsg(str) {
     })
 }
 
-function setCmds(cmds) {
+function setResponses(cmds) {
+    // Only answer to one user
+    bot.on('message', (msg, _) => {
+        const newUser = msg.chat.id
+
+        if (!user) {
+            user = newUser
+            sendMsg('Mommyyyyyyyyyyyyyyy.')
+        } else if (user != newUser) {
+            sendMsg('Mommy! A stranger tried to talk to me.')
+        }
+    })
+
+    // if the message is not a command, send it back
+    bot.onText(/^(?!\/\S).+/s, (msg, _) => {
+        sendMsg(msg.text)
+    })
+
     // Respond to given commands
     bot.onText(/^\/(\S+)(?:\s+(.+))?$/, (msg, match) => {
         const name = match[1]
-        const args = match[2]?.split(' ') || ' '
+        const args = match[2]?.split(' ') || []
         const cmd = cmds[name]
 
         if (cmd) {
@@ -29,23 +46,6 @@ function setCmds(cmds) {
     })
 }
 
-// Only answer to user
-bot.on('message', (msg, _) => {
-    const newUser = msg.chat.id
-
-    if (!user) {
-        user = newUser
-        sendMsg('Mommyyyyyyyyyyyyyyy.')
-    } else if (user != newUser) {
-        sendMsg('Mommy! A stranger tried to talk to me.')
-    }
-})
-
-// if the message is not a command, send it back
-bot.onText(/^(?!\/\S).+/s, (msg, _) => {
-    sendMsg(msg.text)
-})
-
 module.exports = {
-    sendMsg, setCmds
+    sendMsg, setResponses
 }

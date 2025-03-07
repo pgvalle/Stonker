@@ -3,8 +3,12 @@ const bot = require('./bot')
 const stocks = require('./stocks')
 
 const listLimit = 8
+
+// ============================================================================
+// HELPS
+// ============================================================================
+
 const helps = {}
-const cmds = {}
 
 helps.brief = `
 Commands available:
@@ -105,6 +109,12 @@ Examples:
 /help help stock
 \`\`\``
 
+// ============================================================================
+// COMMANDS
+// ============================================================================
+
+const cmds = {}
+
 cmds.ainv = (args) => {
     if (args.length < 3) {
         bot.sendMsg('Give 3 or 4 arguments. See `/help ainv` to know more.')
@@ -146,7 +156,7 @@ cmds.linv = (args) => {
     args.length = Math.min(listLimit, args.length)
 
     var query = queries.GET_SPECIFIC_INVESTMENTS
-    const queryParams = {
+    const params = {
         $MICs: JSON.stringify(args), // specific investments to get
         $limit: listLimit
     }
@@ -155,8 +165,8 @@ cmds.linv = (args) => {
         query = queries.GET_INVESTMENTS
     }
 
-    db.all(query, queryParams, (_, rows) => {
-        if (!rows || rows.length == 0) {
+    db.all(query, params, (_, rows) => {
+        if (!rows) {
             bot.sendMsg('You have 0 investments.')
             return
         }
@@ -179,7 +189,7 @@ cmds.dinv = (args) => {
     args.length = Math.min(listLimit, args.length)
 
     var query = queries.DEL_SPECIFIC_INVESTMENTS
-    const queryParams = {
+    const params = {
         $MICs: JSON.stringify(args) // specific investments to get
     }
 
@@ -187,8 +197,8 @@ cmds.dinv = (args) => {
         query = queries.DEL_ALL_INVESTMENTS
     }
 
-    db.all(query, queryParams, (_, rows) => {
-        if (!rows || rows.length == 0) {
+    db.all(query, params, (_, rows) => {
+        if (!rows) {
             bot.sendMsg('You have 0 investments.')
         } else if (rows.length == args.length && args.length > 0) {
             bot.sendMsg('Investments deleted.')
@@ -217,12 +227,14 @@ cmds.tstk = (args) => {
     bot.sendMsg('Wait a couple seconds and check if `/lstk` shows the stocks you added to track.')
 }
 
+// LIST STOCK COMMAND
+
 cmds.lstk = (args) => {
     // limit array length to be at most listLimit
     args.length = Math.min(listLimit, args.length)
 
     var query = queries.GET_STOCKS
-    const queryParams = {
+    const params = {
         $MICs: JSON.stringify(args),
         $limit: listLimit
     }
@@ -231,8 +243,8 @@ cmds.lstk = (args) => {
         query = queries.GET_SPECIFIC_STOCKS
     }
 
-    db.all(query, queryParams, (_, rows) => {
-        if (!rows || rows.length == 0) {
+    db.all(query, params, (_, rows) => {
+        if (!rows) {
             bot.sendMsg('There are 0 stocks being tracked.')
             return
         }
@@ -254,13 +266,10 @@ cmds.help = (args) => {
     // if no arguments then list all commands
     if (args.length == 0) {
         bot.sendMsg(helps.brief)
-        return
+    } else {
+        const cmd = args[0].toLowerCase()
+        bot.sendMsg(helps[cmd] || `${cmd} isn't a valid command.`)
     }
-
-    const name = args[0].toLowerCase()
-    bot.sendMsg(helps[name] || `${name} isn't a valid command.`)
 }
-
-// export commands
 
 module.exports = cmds
