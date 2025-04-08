@@ -6,6 +6,12 @@ const bot = new TelegramBot(token, {
     polling: true
 })
 
+// respond to plain messages. Just repeat what the user says.
+bot.onText(/^(?!\/\S).+/s, (msg, _) => {
+    const user = msg.chat.id
+    sendMsg(user, msg.text)
+})
+
 // send message with markdown formatting
 async function sendMsg(user, str) {
     await bot.sendMessage(user, str, {
@@ -44,16 +50,6 @@ function respondToCmds(cmds) {
     })
 }
 
-// Respond to plain messages
-function respondToMsgs() {
-    const msgRegex = /^(?!\/\S).+/s
-
-    bot.onText(msgRegex, (msg, _) => {
-        const user = msg.chat.id
-        sendMsg(user, msg.text)
-    })
-}
-
 module.exports = {
-    sendMsg, respondToCmds, respondToMsgs
+    sendMsg, respondToCmds
 }

@@ -9,4 +9,3 @@ db.serialize(() => {
 })
 
 bot.respondToCmds(cmds)
-bot.respondToMsgs()
