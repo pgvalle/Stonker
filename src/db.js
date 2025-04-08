@@ -29,6 +29,11 @@ queries.ADD_STOCK = `INSERT INTO investment (stockMIC) VALUES (upper($MIC))`
 queries.DEL_STOCK = `DELETE FROM investment WHERE stockMIC = upper($MIC) RETURNING *`
 queries.UPDATE_STOCK = `UPDATE investment SET stockPrice = $price`
 
+queries.GET_WHICH_NOTIFY = `
+UPDATE investment SET valueInRange = (value - firstValue) BETWEEN minValue AND maxValue
+WHERE ((value - firstValue) BETWEEN minValue AND maxValue) != valueInRange AND stockMIC = $MIC
+RETURNING *`
+
 /*
 queries.ADD_OR_UPDATE_STOCK = `
     INSERT INTO stock (MIC, price, time, marketHours)
