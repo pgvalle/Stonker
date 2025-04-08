@@ -1,6 +1,6 @@
 # Stonker
 
-**IMPORTANT** Download from the releases page insead. The current state of this piece of software is unusable.
+# WARNING: The current state of this piece of software is unusable and this readme is outdated
 
 Stonker is a Telegram bot that helps you track stock investments, notifying you when stock prices change. No more constantly checking prices—Stonker has you covered.
 
