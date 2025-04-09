@@ -1,19 +1,10 @@
-const sql = require('sqlite3')
+const Database = require('better-sqlite3')
 
-const db = new sql.Database('./stocks.db', sql.OPEN_CREATE | sql.OPEN_READWRITE)
+const db = new Database('./stocks.db')
 
-// utility to make queries easier
-function dbQuery(sql, params) {
-    return new Promise((resolve, reject) => {
-        db.all(sql, params, (error, rows) => {
-            if (error) reject(error);
-            else resolve(rows);
-        })
-    })
-}
+// DB SETUP
 
-exports.init = async function () {
-    await dbQuery(`
+db.prepare(`
     CREATE TABLE IF NOT EXISTS investment (
         stockMIC     VARCHAR(8) NOT NULL,
         stockPrice   REAL,
@@ -24,60 +15,59 @@ exports.init = async function () {
         maxValue     REAL,
         valueInRange INTEGER,
         PRIMARY KEY (stockMIC)
-    );
+    )`
+).run()
 
+db.prepare(`
     CREATE TRIGGER IF NOT EXISTS updateInvestmentValue
-    AFTER UPDATE ON investment.stockPrice
+    AFTER UPDATE ON investment
     FOR EACH ROW BEGIN
         UPDATE investment SET value = OLD.value * NEW.stockPrice / OLD.stockPrice
         WHERE OLD.value IS NOT NULL AND OLD.stockPrice IS NOT NULL;
-    END;`)
+    END`
+).run()
+
+// EXPORTS
+
+exports.addStock = function (mic) {
+    const query = 'INSERT INTO investment (stockMIC) VALUES (@mic) RETURNING *'
+    return db.prepare(query).get({ mic })
 }
 
-exports.addStock = async function (mic) {
-    const sql = 'INSERT INTO investment (stockMIC) VALUES ($mic)'
-    return await dbQuery(sql, { $mic: mic })
+exports.delStock = function (mic) {
+    const query = 'DELETE FROM investment WHERE stockMIC = @mic RETURNING *'
+    return db.prepare(query).get({ mic })
 }
 
-exports.delStock = async function (mic) {
-    const sql = 'DELETE FROM investment WHERE stockMIC = $mic RETURNING *'
-    return await dbQuery(sql, { $mic: mic })
+exports.getStocks = function () {
+    return db.prepare('SELECT * FROM investment').all()
 }
 
-exports.getStocks = async function () {
-    return await dbQuery('SELECT * FROM investment ORDER BY stockPrice DESC')
-}
+exports.updateStock = function (mic, price) {
+    const query1 = 'UPDATE investment SET stockPrice = @price WHERE stockMIC = @mic'
+    db.prepare(query1).run({ mic, price })
 
-exports.updateStock = async function (data) {
-    const sql1 = 'UPDATE investment SET stockPrice = $price WHERE stockMIC = $mic'
-    await dbQuery(sql1, { $mic: data.id, $price: data.price })
-
-    const cond = '((value - firstValue) BETWEEN minValue AND maxValue)'
-    const sql2 = `
+    const cond = '(value - firstValue) BETWEEN minValue AND maxValue'
+    const query2 = `
     UPDATE investment SET valueInRange = ${cond}
     WHERE ${cond} != valueInRange AND stockMIC = $mic
     RETURNING *`
-
-    return await dbQuery(sql2, { $mic: data.id })
+        
+    return db.prepare(query2).get({ mic })
 }
 
-exports.invest = async function (mic, value, diff) {
-    const sql = `
+exports.invest = function (mic, value, diff) {
+    const query = `
     UPDATE investment SET
-        firstValue = $value,
-        value = $value,
-        minValue = $minValue,
-        maxValue = $maxValue,
+        firstValue = @value,
+        value = @value,
+        minValue = @value - @diff,
+        maxValue = @value + @diff,
         valueInRange = TRUE
-    WHERE stockMIC = $mic AND stockPrice IS NOT NULL
+    WHERE stockMIC = @mic AND stockPrice IS NOT NULL
     RETURNING *`
 
-    return await dbQuery(sql, {
-        $mic: mic,
-        $value: value,
-        $minValue: value - diff,
-        $maxValue: value + diff
-    })
+    return db.prepare(query).get({ mic, value, diff })
 }
 
 /*
