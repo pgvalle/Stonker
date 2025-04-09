@@ -1,6 +1,6 @@
-const sql = require('sqlite3');
+const sql = require('sqlite3')
 
-const db = new sql.Database('./stocks.db', sql.OPEN_CREATE | sql.OPEN_READWRITE);
+const db = new sql.Database('./stocks.db', sql.OPEN_CREATE | sql.OPEN_READWRITE)
 
 // utility to make queries easier
 function dbQuery(sql, params) {
@@ -8,8 +8,8 @@ function dbQuery(sql, params) {
         db.all(sql, params, (error, rows) => {
             if (error) reject(error);
             else resolve(rows);
-        });
-    });
+        })
+    })
 }
 
 exports.init = async function () {
@@ -31,34 +31,34 @@ exports.init = async function () {
     FOR EACH ROW BEGIN
         UPDATE investment SET value = OLD.value * NEW.stockPrice / OLD.stockPrice
         WHERE OLD.value IS NOT NULL AND OLD.stockPrice IS NOT NULL;
-    END;`);
+    END;`)
 }
 
 exports.addStock = async function (mic) {
-    const sql = 'INSERT INTO investment (stockMIC) VALUES ($mic)';
-    return await dbQuery(sql, { $mic: mic });
+    const sql = 'INSERT INTO investment (stockMIC) VALUES ($mic)'
+    return await dbQuery(sql, { $mic: mic })
 }
 
 exports.delStock = async function (mic) {
-    const sql = 'DELETE FROM investment WHERE stockMIC = $mic RETURNING *';
-    return await dbQuery(sql, { $mic: mic });
+    const sql = 'DELETE FROM investment WHERE stockMIC = $mic RETURNING *'
+    return await dbQuery(sql, { $mic: mic })
 }
 
 exports.getStocks = async function () {
-    return await dbQuery('SELECT * FROM investment ORDER BY stockPrice DESC');
+    return await dbQuery('SELECT * FROM investment ORDER BY stockPrice DESC')
 }
 
 exports.updateStock = async function (data) {
-    const sql1 = 'UPDATE investment SET stockPrice = $price WHERE stockMIC = $mic';
-    await dbQuery(sql1, { $mic: data.id, $price: data.price });
+    const sql1 = 'UPDATE investment SET stockPrice = $price WHERE stockMIC = $mic'
+    await dbQuery(sql1, { $mic: data.id, $price: data.price })
 
-    const cond = '((value - firstValue) BETWEEN minValue AND maxValue)';
+    const cond = '((value - firstValue) BETWEEN minValue AND maxValue)'
     const sql2 = `
     UPDATE investment SET valueInRange = ${cond}
     WHERE ${cond} != valueInRange AND stockMIC = $mic
-    RETURNING *`;
+    RETURNING *`
 
-    return await dbQuery(sql2, { $mic: data.id });
+    return await dbQuery(sql2, { $mic: data.id })
 }
 
 exports.invest = async function (mic, value, diff) {
@@ -70,14 +70,14 @@ exports.invest = async function (mic, value, diff) {
         maxValue = $maxValue,
         valueInRange = TRUE
     WHERE stockMIC = $mic
-    RETURNING *`;
+    RETURNING *`
 
     return await dbQuery(sql, {
         $mic: mic,
         $value: value,
         $minValue: value - diff,
         $maxValue: value + diff
-    });
+    })
 }
 
 /*
