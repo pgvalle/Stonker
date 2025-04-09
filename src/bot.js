@@ -44,19 +44,24 @@ async function start() {
             sock.addTicker(stock.stockMIC, db.updateStock);
         }
     }, 30000)
+    
+    // save user that sent the first message
+    bot.on('message', (msg) => {
+        if (user) return
+        user = msg.chat.id
+        sendMsg('I registered you as my mommy')
+    })
 
     // respond to plain messages. Just repeat what the user says.
     const MSG_REGEX = /^(?!\/\S).+/s
     bot.onText(MSG_REGEX, (msg) => {
-        if (!user) user = msg.chat.id
         if (user != msg.chat.id) return
         sendMsg(msg.text)
     })
-    
+
     // respond to commands defined
     const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
     bot.onText(CMD_REGEX, (msg, match) => {
-        if (!user) user = msg.chat.id
         if (user != msg.chat.id) return
 
         const name = match.groups.name
