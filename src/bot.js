@@ -8,8 +8,8 @@ const bot = new TelegramBot(TOKEN, { polling: true })
 var user = null
 
 // send message to user with markdown formatting
-function sendMsg(str) {
-    bot.sendMessage(user, str, { parse_mode: 'Markdown' })
+async function sendMsg(str) {
+    await bot.sendMessage(user, str, { parse_mode: 'Markdown' })
 }
 
 // update stock info in db and notify user
@@ -24,18 +24,19 @@ const cmds = {}
 
 cmds.a = async function (args) {
     if (args.length != 1) {
-        sendMsg('Pass exactly one argument')
+        await sendMsg('Pass exactly one argument')
         return
     }
 
     const mic = args[0].toUpperCase()
     const added = db.addStock(mic)
     sock.addTicker(mic, updateAndNotify)
+    await sendMsg(added ? 'ok' : 'not ok')
 }
 
 cmds.d = async function (args) {
     if (args.length != 1) {
-        sendMsg('Pass exactly one argument')
+        await sendMsg('Pass exactly one argument')
         return
     }
 
@@ -47,12 +48,12 @@ cmds.d = async function (args) {
 cmds.l = async function (args) {
     const stocks = db.getStocks()
     for (const stock of stocks) {
-        sendMsg(JSON.stringify(stock))
+        await sendMsg(JSON.stringify(stock))
     }
 }
 
 cmds.i = async function (args) {
-    sendMsg('Not implemented yet')
+    await sendMsg('Not implemented yet')
 }
 
 // RUNNING
@@ -63,29 +64,30 @@ for (const stock of stocks) {
     sock.addTicker(stock.stockMIC, updateAndNotify);
 }
 
-// save user that sent the first message
-bot.on('message', (msg) => {
-    if (user) return
-    user = msg.chat.id
-    sendMsg('I registered you as my mommy')
-})
-
 // respond to plain messages. Just repeat what the user says.
 const MSG_REGEX = /^(?!\/\S).+/s
-bot.onText(MSG_REGEX, (msg) => {
+bot.onText(MSG_REGEX, async (msg) => {
+    if (!user) {
+        user = msg.chat.id
+        await sendMsg('I registered you as my mommy')
+    }
+
     if (user != msg.chat.id) return
-    sendMsg(msg.text)
+    await sendMsg(msg.text)
 })
 
 // respond to commands defined
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-bot.onText(CMD_REGEX, (msg, match) => {
-    if (user != msg.chat.id) return
+bot.onText(CMD_REGEX, async (msg, match) => {
+    if (!user) {
+        user = msg.chat.id
+        await sendMsg('I registered you as my mommy')
+    }
 
     const name = match.groups.name
     const args = match.groups.args?.split(' ') || []
     const cmd = cmds[name]
 
-    if (cmd) cmd(args)
-    else sendMsg(`What is ${name}?`)
+    if (cmd) await cmd(args)
+    else await sendMsg(`What is ${name}?`)
 })
