@@ -69,7 +69,7 @@ exports.invest = async function (mic, value, diff) {
         minValue = $minValue,
         maxValue = $maxValue,
         valueInRange = TRUE
-    WHERE stockMIC = $mic
+    WHERE stockMIC = $mic AND stockPrice IS NOT NULL
     RETURNING *`
 
     return await dbQuery(sql, {
