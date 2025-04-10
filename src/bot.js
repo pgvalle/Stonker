@@ -15,7 +15,10 @@ async function sendMsg(str) {
 // update stock info in db and notify user
 function updateAndNotify(data) {
     const updated = db.updateStock(data.id, data.price)
-    if (updated) sendMsg(updated.stockMIC)
+    if (updated) {
+        sendMsg(updated.stockMIC + ' reached ' + updated.stockPrice)
+        sendMsg(updated.firstValue + ' reached ' + updated.value)
+    }
 }
 
 // COMMANDS
