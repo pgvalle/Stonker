@@ -15,9 +15,9 @@ async function sendMsg(str) {
 // update stock info in db and notify user
 function updateAndNotify(data) {
     const updated = db.updateStock(data.id, data.price)
-    if (updated) {
+    if (updated != undefined) {
         sendMsg(updated.stockMIC + ' reached ' + updated.stockPrice)
-        sendMsg(updated.firstValue + ' reached ' + updated.value)
+        sendMsg(updated.initialValue + ' reached ' + updated.value)
     }
 }
 
@@ -33,7 +33,9 @@ cmds.a = async function (args) {
 
     const mic = args[0].toUpperCase()
     const added = db.addStock(mic)
-    sock.addTicker(mic, updateAndNotify)
+    if (added) {
+        sock.addTicker(mic, updateAndNotify)
+    }
     await sendMsg(added ? 'ok' : 'not ok')
 }
 
@@ -63,8 +65,11 @@ cmds.i = async function (args) {
 
     const mic = args[0].toUpperCase()
     const value = parseFloat(parseFloat(args[1]).toFixed(2))
-    const diff = parseFloat(parseFloat(args[1]).toFixed(2))
-    db.invest(mic, value, diff)
+    const diff = parseFloat(parseFloat(args[2]).toFixed(2))
+    console.log(mic)
+    console.log(value)
+    console.log(diff)
+    console.log(db.invest(mic, value, diff))
 }
 
 // RUNNING
