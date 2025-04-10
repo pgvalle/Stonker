@@ -4,7 +4,7 @@ const db = require('./db')
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const bot = new TelegramBot(TOKEN, { polling: true })
-const botCmds = {}
+const cmds = {}
 
 var user = null
 
@@ -15,15 +15,15 @@ async function sendMsg(str) {
 
 // update stock info in db and notify user
 async function updateAndNotify(data) {
-    const updated = db.updateStock(data.id, data.price)
-    if (updated) {
-        await sendMsg(`${updated.stockMIC} updated!`)
-    }
+    const row = db.updateStock(data.id, data.price)
+    // if (row.shouldNotify) {
+    //     // await sendMsg(`${updated.stockMIC} updated!`)
+    // }
 }
 
 // COMMANDS
 
-botCmds.a = async function (args) {
+cmds.a = async function (args) {
     if (args.length != 1) {
         await sendMsg('usage: `/a {stockMIC}`')
         return
@@ -37,7 +37,7 @@ botCmds.a = async function (args) {
     await sendMsg(added ? 'ok' : 'not ok')
 }
 
-botCmds.d = async function (args) {
+cmds.d = async function (args) {
     if (args.length != 1) {
         await sendMsg('usage: `/d {stockMIC}`')
         return
@@ -48,14 +48,14 @@ botCmds.d = async function (args) {
     const deleted = db.delStock(mic)
 }
 
-botCmds.l = async function (args) {
+cmds.l = async function (args) {
     const stocks = db.getStocks()
     for (const stock of stocks) {
         await sendMsg(JSON.stringify(stock))
     }
 }
 
-botCmds.i = async function (args) {
+cmds.i = async function (args) {
     if (args.length != 3) {
         await sendMsg('usage: `/i {stockMIC} {x.xx} {y.yy}`')
         return
@@ -64,10 +64,7 @@ botCmds.i = async function (args) {
     const mic = args[0].toUpperCase()
     const value = parseFloat(parseFloat(args[1]).toFixed(2))
     const diff = parseFloat(parseFloat(args[2]).toFixed(2))
-    console.log(mic)
-    console.log(value)
-    console.log(diff)
-    console.log(db.invest(mic, value, diff))
+    db.invest(mic, value, diff)
 }
 
 // RUNNING
@@ -77,14 +74,16 @@ for (const stock of db.getStocks()) {
     sock.addTicker(stock.stockMIC, updateAndNotify);
 }
 
+// register user
+bot.on('message', async (msg) => {
+    if (user) return
+    user = msg.chat.id
+    await sendMsg('I registered you as my mommy')
+})
+
 // respond to plain messages. Just repeat what the user says.
 const MSG_REGEX = /^(?!\/\S).+/s
 bot.onText(MSG_REGEX, async (msg) => {
-    if (!user) {
-        user = msg.chat.id
-        await sendMsg('I registered you as my mommy')
-    }
-
     if (user != msg.chat.id) return
     await sendMsg(msg.text)
 })
@@ -92,15 +91,11 @@ bot.onText(MSG_REGEX, async (msg) => {
 // respond to commands defined
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 bot.onText(CMD_REGEX, async (msg, match) => {
-    if (!user) {
-        user = msg.chat.id
-        await sendMsg('I registered you as my mommy')
-    }
+    if (user != msg.chat.id) return
 
-    const name = match.groups.name
+    const cmd = cmds[match.groups.name]
     const args = match.groups.args?.split(' ') || []
-    const cmd = cmds[name]
 
     if (cmd) await cmd(args)
-    else await sendMsg(`What is ${name}?`)
+    else await sendMsg('???')
 })

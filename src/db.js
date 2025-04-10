@@ -1,8 +1,6 @@
 const Database = require('better-sqlite3')
 const db = new Database('./investments.db')
 
-// DB SETUP
-
 db.prepare(`
     CREATE TABLE IF NOT EXISTS investment (
         stockMIC     VARCHAR(8) NOT NULL,
@@ -11,7 +9,6 @@ db.prepare(`
         value        REAL,
         minValue     REAL,
         maxValue     REAL,
-        shouldNotify INTEGER,
         PRIMARY KEY (stockMIC)
     )`
 ).run()
@@ -21,7 +18,7 @@ db.prepare(`
 exports.addStock = function (mic) {
     try {
         db.prepare(`
-            INSERT OR IGNORE INTO investment (stockMIC)
+            INSERT INTO investment (stockMIC)
             VALUES (@mic)`
         ).run({ mic })
         return true
@@ -45,20 +42,26 @@ exports.getStocks = function () {
 }
 
 exports.updateStock = db.transaction((mic, price) => {
-    db.prepare(`
+    const b4 = db.prepare(`
+        SELECT * FROM investment
+        WHERE stockMIC == @mic`
+    ).get({ mic })
+
+    if (!b4.value) return false
+
+    const now = db.prepare(`
         UPDATE investment SET
             stockPrice = @price,
-            value = value * @price / stockPrice,
-            shouldNotify = (value BETWEEN minValue AND maxValue) !=
-                ((value * @price / stockPrice) BETWEEN minValue AND maxValue)
-        WHERE stockMIC == @mic`
-    ).run({ mic, price })
-
-    return db.prepare(`
-        UPDATE investment SET shouldNotify = FALSE
-        WHERE shouldNotify == TRUE
+            value = value * @price / stockPrice
+        WHERE stockMIC == @mic
         RETURNING *`
-    ).get()
+    ).get({ mic, price })
+
+    const inRange = (v, min, max) => {
+        return v >= min && v <= max
+    }
+    
+    return inRange(b4.value, b4.minValue, b4.maxValue) != inRange(now.value, now.minValue, now.maxValue)
 })
 
 exports.invest = function (mic, value, diff) {
@@ -67,8 +70,7 @@ exports.invest = function (mic, value, diff) {
             initialValue = @value,
             value = @value,
             minValue = @value - @diff,
-            maxValue = @value + @diff,
-            shouldNotify = FALSE
+            maxValue = @value + @diff
         WHERE stockMIC == @mic AND stockPrice IS NOT NULL
         RETURNING *`
     ).get({ mic, value, diff })
