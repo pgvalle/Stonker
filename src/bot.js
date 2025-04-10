@@ -4,6 +4,7 @@ const db = require('./db')
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const bot = new TelegramBot(TOKEN, { polling: true })
+const botCmds = {}
 
 var user = null
 
@@ -13,21 +14,18 @@ async function sendMsg(str) {
 }
 
 // update stock info in db and notify user
-function updateAndNotify(data) {
+async function updateAndNotify(data) {
     const updated = db.updateStock(data.id, data.price)
-    if (updated != undefined) {
-        sendMsg(updated.stockMIC + ' reached ' + updated.stockPrice)
-        sendMsg(updated.initialValue + ' reached ' + updated.value)
+    if (updated) {
+        await sendMsg(`${updated.stockMIC} updated!`)
     }
 }
 
 // COMMANDS
 
-const cmds = {}
-
-cmds.a = async function (args) {
+botCmds.a = async function (args) {
     if (args.length != 1) {
-        await sendMsg('Pass exactly one argument')
+        await sendMsg('usage: `/a {stockMIC}`')
         return
     }
 
@@ -39,9 +37,9 @@ cmds.a = async function (args) {
     await sendMsg(added ? 'ok' : 'not ok')
 }
 
-cmds.d = async function (args) {
+botCmds.d = async function (args) {
     if (args.length != 1) {
-        await sendMsg('Pass exactly one argument')
+        await sendMsg('usage: `/d {stockMIC}`')
         return
     }
 
@@ -50,16 +48,16 @@ cmds.d = async function (args) {
     const deleted = db.delStock(mic)
 }
 
-cmds.l = async function (args) {
+botCmds.l = async function (args) {
     const stocks = db.getStocks()
     for (const stock of stocks) {
         await sendMsg(JSON.stringify(stock))
     }
 }
 
-cmds.i = async function (args) {
+botCmds.i = async function (args) {
     if (args.length != 3) {
-        await sendMsg('Pass exactly trhee arguments')
+        await sendMsg('usage: `/i {stockMIC} {x.xx} {y.yy}`')
         return
     }
 
@@ -75,8 +73,7 @@ cmds.i = async function (args) {
 // RUNNING
 
 // get all stocks stored in db and add their tickers
-const stocks = db.getStocks();
-for (const stock of stocks) {
+for (const stock of db.getStocks()) {
     sock.addTicker(stock.stockMIC, updateAndNotify);
 }
 
