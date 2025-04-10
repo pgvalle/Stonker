@@ -53,7 +53,15 @@ cmds.l = async function (args) {
 }
 
 cmds.i = async function (args) {
-    await sendMsg('Not implemented yet')
+    if (args.length != 3) {
+        await sendMsg('Pass exactly trhee arguments')
+        return
+    }
+
+    const mic = args[0].toUpperCase()
+    const value = parseFloat(parseFloat(args[1]).toFixed(2))
+    const diff = parseFloat(parseFloat(args[1]).toFixed(2))
+    db.invest(mic, value, diff)
 }
 
 // RUNNING
