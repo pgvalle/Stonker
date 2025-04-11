@@ -18,7 +18,7 @@ async function updateAndNotify(data) {
     const row = db.updateStock(data.id, data.price)
     if (!row) return;
 
-    sendMsg(row.stockMIC)
+    await sendMsg(row.stockMIC)
 }
 
 // COMMANDS
@@ -75,9 +75,13 @@ for (const stock of db.getStocks()) {
 
 // register user that sent the first message
 bot.on('message', async (msg) => {
-    if (user) return
-    user = msg.chat.id
-    await sendMsg('I registered you as my owner')
+    const newUser = msg.chat.id
+    if (!user) {
+        user = newUser
+        await sendMsg('I registered you as my owner')
+    } else if (user != newUser) {
+        await sendMsg('You are not my owner')
+    }
 })
 
 const MSG_REGEX = /^(?!\/\S).+/s
@@ -95,5 +99,5 @@ bot.onText(CMD_REGEX, async (msg, match) => {
     const args = match.groups.args?.split(' ') || []
 
     if (cmd) await cmd(args)
-    else await sendMsg('???')
+    else await sendMsg('What???')
 })

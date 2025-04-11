@@ -14,33 +14,19 @@ db.prepare(`
     )`
 ).run()
 
-// useful function
-function getStock(mic) {
-    const row = db.prepare(`
-        SELECT * FROM investment
-        WHERE stockMIC == @mic`
-    ).get({ mic })
-
-    return row 
-}
-
 // EXPORTS
 
 exports.getStocks = () => {
-    return db.prepare(
-        'SELECT * FROM investment'
-    ).all()
+    return db.prepare('SELECT * FROM investment').all()
 }
 
-exports.addStock = db.transaction((mic) => {
-    if (getStock(mic)) return false
-
-    db.prepare(
-        'INSERT INTO investment (stockMIC) VALUES (@mic)'
-    ).run({ mic })
-
-    return true
-})
+exports.addStock = (mic) => {
+    return db.prepare(`
+        INSERT INTO investment (stockMIC) VALUES (@mic)
+        ON CONFLICT(stockMIC) DO NOTHING
+        RETURNING *`
+    ).get({ mic })
+}
 
 exports.delStock = (mic) => {
     return db.prepare(`
@@ -51,8 +37,10 @@ exports.delStock = (mic) => {
 }
 
 exports.updateStock = db.transaction((mic, price) => {
-    const b4 = getStock(mic)
-    if (!b4 || !b4.value) return undefined
+    const b4 = db.prepare(`
+        SELECT * FROM investment
+        WHERE stockMIC == @mic`
+    ).get({ mic })
 
     const now = db.prepare(`
         UPDATE investment SET
@@ -62,14 +50,13 @@ exports.updateStock = db.transaction((mic, price) => {
         RETURNING *`
     ).get({ mic, price })
 
-    const inRange = (v, min, max) => {
-        return v >= min && v <= max
+    const inRangeX = (v, min, max) => {
+        return min < v && v < max
     }
-   
-    const inRangeB4 = inRange(b4.value, b4.minValue, b4.maxValue)
-    const inRangeNow = inRange(now.value, now.minValue, now.maxValue)
-    if (inRangeB4 == inRangeNow) return undefined
-    return now
+
+    const inRangeB4 = inRangeX(b4.value, b4.minValue, b4.maxValue)
+    const inRangeNow = inRangeX(now.value, now.minValue, now.maxValue)
+    return (inRangeB4 == inRangeNow) ? undefined : now
 })
 
 exports.invest = (mic, value, diff) => {
