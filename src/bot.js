@@ -21,6 +21,11 @@ async function updateAndNotify(data) {
     await sendMsg(row.stockMIC)
 }
 
+// round to 2 decimal places
+function financial(x) {
+    return Number(Number(x).toFixed(2))
+}
+
 // COMMANDS
 
 cmds.a = async (args) => {
@@ -33,8 +38,8 @@ cmds.a = async (args) => {
     const added = db.addStock(mic)
     if (added) {
         sock.addTicker(mic, updateAndNotify)
-    }
-    await sendMsg(added ? 'ok' : 'not ok')
+        await sendMsg('ok')
+    } else await sendMsg('not ok')
 }
 
 cmds.d = async (args) => {
@@ -45,25 +50,39 @@ cmds.d = async (args) => {
 
     const mic = args[0].toUpperCase()
     sock.removeTicker(mic)
+
     const deleted = db.delStock(mic)
+    if (deleted) await sendMsg('Deleted')
+    else await sendMsg('Entry did not exist')
 }
 
 cmds.l = async (args) => {
-    for (const stock of db.getStocks()) {
+    const stocks = db.getStocks()
+    for (const stock of stocks) {
         await sendMsg(JSON.stringify(stock))
     }
+
+    if (stocks.length == 0) await sendMsg('No entries')
 }
 
 cmds.i = async (args) => {
     if (args.length != 3) {
-        await sendMsg('usage: `/i {stockMIC} {x.xx} {y.yy}`')
+        await sendMsg('usage: `/i {stockMIC} {x >= 1} {y >= 0.01}`')
         return
     }
 
     const mic = args[0].toUpperCase()
-    const value = parseFloat(parseFloat(args[1]).toFixed(2))
-    const diff = parseFloat(parseFloat(args[2]).toFixed(2))
-    db.invest(mic, value, diff)
+    const value = financial(args[1])
+    const diff = financial(args[2])
+
+    if (value < 1 || diff < 0.01) {
+        await sendMsg('x >= 1 and y >= 0.01')
+        return
+    }
+
+    const ok = db.invest(mic, value, diff)
+    if (ok) await sendMsg('Done')
+    else await sendMsg('existing entry')
 }
 
 // RUNNING
