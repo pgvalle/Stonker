@@ -16,6 +16,13 @@ db.prepare(`
 
 // EXPORTS
 
+exports.getStock = (mic) => {
+    return db.prepare(`
+        SELECT * FROM investment
+        WHERE stockMIC == @mic`
+    ).get({ mic })
+}
+
 exports.getStocks = () => {
     return db.prepare('SELECT * FROM investment').all()
 }
@@ -37,11 +44,7 @@ exports.delStock = (mic) => {
 }
 
 exports.updateStock = db.transaction((mic, price) => {
-    const b4 = db.prepare(`
-        SELECT * FROM investment
-        WHERE stockMIC == @mic`
-    ).get({ mic })
-
+    const b4 = getStock(mic)
     const now = db.prepare(`
         UPDATE investment SET
             stockPrice = @price,
