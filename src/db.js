@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3')
 const db = new Database('./investments.db')
 
+// db setup
 db.prepare(`
     CREATE TABLE IF NOT EXISTS investment (
         stockMIC     VARCHAR(8) NOT NULL,
@@ -13,21 +14,35 @@ db.prepare(`
     )`
 ).run()
 
-// EXPORTS
+// useful function
+function getStock(mic) {
+    const row = db.prepare(`
+        SELECT * FROM investment
+        WHERE stockMIC == @mic`
+    ).get({ mic })
 
-exports.addStock = function (mic) {
-    try {
-        db.prepare(`
-            INSERT INTO investment (stockMIC)
-            VALUES (@mic)`
-        ).run({ mic })
-        return true
-    } catch (error) {
-        return false
-    }
+    return row 
 }
 
-exports.delStock = function (mic) {
+// EXPORTS
+
+exports.getStocks = () => {
+    return db.prepare(
+        'SELECT * FROM investment'
+    ).all()
+}
+
+exports.addStock = db.transaction((mic) => {
+    if (getStock(mic)) return false
+
+    db.prepare(
+        'INSERT INTO investment (stockMIC) VALUES (@mic)'
+    ).run({ mic })
+
+    return true
+})
+
+exports.delStock = (mic) => {
     return db.prepare(`
         DELETE FROM investment
         WHERE stockMIC == @mic
@@ -35,19 +50,9 @@ exports.delStock = function (mic) {
     ).get({ mic })
 }
 
-exports.getStocks = function () {
-    return db.prepare(
-        'SELECT * FROM investment'
-    ).all()
-}
-
 exports.updateStock = db.transaction((mic, price) => {
-    const b4 = db.prepare(`
-        SELECT * FROM investment
-        WHERE stockMIC == @mic`
-    ).get({ mic })
-
-    if (!b4.value) return false
+    const b4 = getStock(mic)
+    if (!b4 || !b4.value) return undefined
 
     const now = db.prepare(`
         UPDATE investment SET
@@ -60,11 +65,14 @@ exports.updateStock = db.transaction((mic, price) => {
     const inRange = (v, min, max) => {
         return v >= min && v <= max
     }
-    
-    return inRange(b4.value, b4.minValue, b4.maxValue) != inRange(now.value, now.minValue, now.maxValue)
+   
+    const inRangeB4 = inRange(b4.value, b4.minValue, b4.maxValue)
+    const inRangeNow = inRange(now.value, now.minValue, now.maxValue)
+    if (inRangeB4 == inRangeNow) return undefined
+    return now
 })
 
-exports.invest = function (mic, value, diff) {
+exports.invest = (mic, value, diff) => {
     return db.prepare(`
         UPDATE investment SET
             initialValue = @value,

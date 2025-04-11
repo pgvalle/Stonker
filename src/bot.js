@@ -16,14 +16,14 @@ async function sendMsg(str) {
 // update stock info in db and notify user
 async function updateAndNotify(data) {
     const row = db.updateStock(data.id, data.price)
-    // if (row.shouldNotify) {
-    //     // await sendMsg(`${updated.stockMIC} updated!`)
-    // }
+    if (!row) return;
+
+    sendMsg(row.stockMIC)
 }
 
 // COMMANDS
 
-cmds.a = async function (args) {
+cmds.a = async (args) => {
     if (args.length != 1) {
         await sendMsg('usage: `/a {stockMIC}`')
         return
@@ -37,7 +37,7 @@ cmds.a = async function (args) {
     await sendMsg(added ? 'ok' : 'not ok')
 }
 
-cmds.d = async function (args) {
+cmds.d = async (args) => {
     if (args.length != 1) {
         await sendMsg('usage: `/d {stockMIC}`')
         return
@@ -48,14 +48,13 @@ cmds.d = async function (args) {
     const deleted = db.delStock(mic)
 }
 
-cmds.l = async function (args) {
-    const stocks = db.getStocks()
-    for (const stock of stocks) {
+cmds.l = async (args) => {
+    for (const stock of db.getStocks()) {
         await sendMsg(JSON.stringify(stock))
     }
 }
 
-cmds.i = async function (args) {
+cmds.i = async (args) => {
     if (args.length != 3) {
         await sendMsg('usage: `/i {stockMIC} {x.xx} {y.yy}`')
         return
@@ -69,27 +68,26 @@ cmds.i = async function (args) {
 
 // RUNNING
 
-// get all stocks stored in db and add their tickers
+// start watching stocks i have on the db
 for (const stock of db.getStocks()) {
     sock.addTicker(stock.stockMIC, updateAndNotify);
 }
 
-// register user
+// register user that sent the first message
 bot.on('message', async (msg) => {
     if (user) return
     user = msg.chat.id
-    await sendMsg('I registered you as my mommy')
+    await sendMsg('I registered you as my owner')
 })
 
-// respond to plain messages. Just repeat what the user says.
 const MSG_REGEX = /^(?!\/\S).+/s
+const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
+
 bot.onText(MSG_REGEX, async (msg) => {
     if (user != msg.chat.id) return
     await sendMsg(msg.text)
 })
 
-// respond to commands defined
-const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 bot.onText(CMD_REGEX, async (msg, match) => {
     if (user != msg.chat.id) return
 
