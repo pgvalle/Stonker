@@ -7,20 +7,17 @@ const bot = new TelegramBot(TOKEN, { polling: true })
 const cmds = {}
 var owner = null
 
-// send message to owner with markdown formatting
 async function sendMsg(str) {
     await bot.sendMessage(owner, str, { parse_mode: 'Markdown' })
 }
 
-// check if It's the owner
-async function isOwner(user) {
-    if (owner) {
-        return owner == user
+function isOwner(user) {
+    if (!owner) {
+        owner = user
+        sendMsg("You are my owner. Get help with `/h h`.")
     }
 
-    owner = user
-    await sendMsg("You are my owner. Get help with `/h h`.")
-    return false
+    return owner == user
 }
 
 // update stock info in db and notify owner
@@ -29,6 +26,7 @@ async function updateAndNotify(data) {
     if (!row) return;
 
     // TODO: do some proper formatting
+    await sendMsg('You got something going on!')
     await sendMsg(row.stockTicker)
 }
 
@@ -38,6 +36,7 @@ function formatMoney(x) {
 }
 
 // prettify table row information
+// TODO: finish this
 function formatRow(row, isUpdate) {
     // important info
     // ticker, price, value, value - initialvalue
@@ -66,12 +65,12 @@ cmds.h = async (args) => {
     }
 }
 
-cmds.h.help = `
+cmds.h.help = `\`\`\`
 /h <thing>
   Help with a given "thing".
   - thing: h, a, d, s, m, ticker
   Example: /h ticker
-`
+\`\`\``
 
 cmds.a = async (args) => {
     if (args.length != 1) {
@@ -131,7 +130,7 @@ cmds.s = async (args) => {
         if (stock) {
             await sendMsg(formatRow(stock))
         } else {
-            await sendMsg(`${ticker} is not in the watchlist.`)
+            await sendMsg(`${ticker} is not in the watchlist. Add it with \`/a ${ticker}\`.`)
         }
 
         return
@@ -184,11 +183,11 @@ cmds.i = async (args) => {
     const ticker = args[0].toUpperCase()
     const invested = db.invest(ticker, value, diff, upDiff)
     if (invested) {
-        await sendMsg(`Invested $${value} in ${ticker}`)
+        await sendMsg(`Invested $${value} in ${ticker}.`)
     } else if (db.getStock(ticker)) {
-        await sendMsg(`No price info on ${ticker} yet`)
+        await sendMsg(`No price info on ${ticker} yet.`)
     } else {
-        await sendMsg(`${ticker} is not in the watchlist. Add it with \`/a ${ticker}\``)
+        await sendMsg(`${ticker} is not in the watchlist. Add it with \`/a ${ticker}\`.`)
     }
 }
 
@@ -213,14 +212,13 @@ for (const stock of db.getStocks()) {
 }
 
 const MSG_REGEX = /^(?!\/\S).+/s
-const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
-
 bot.onText(MSG_REGEX, async (msg) => {
     if (isOwner(msg.chat.id)) {
         await sendMsg(msg.text)
     }
 })
 
+const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 bot.onText(CMD_REGEX, async (msg, match) => {
     if (!isOwner(msg.chat.id)) {
         return
