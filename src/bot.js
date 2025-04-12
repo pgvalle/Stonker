@@ -5,8 +5,6 @@ const db = require('./db')
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const bot = new TelegramBot(TOKEN, { polling: true })
 const cmds = {}
-const helps = {}
-
 var user = null
 
 // send message to user with markdown formatting
@@ -27,56 +25,38 @@ function financial(x) {
     return Number(Number(x).toFixed(2))
 }
 
-// HELPS
-
-helps.trivia = `\`\`\`
-Trivia: MIC stands for Market Identifier Code (e.g., NASDAQ:AAPL, TSLA)
-\`\`\``
-
-helps.h = `\`\`\`
-/h <command>
-  Help with given command.
-  - command: h, a, d, s, m
-  Example: /h h
-\`\`\``
-
-helps.a = `\`\`\`
-/a <MIC>
-  Add a stock to the watchlist.
-  Example: /a NYSE:TSLA
-\`\`\``
-
-helps.d = `\`\`\`
-/d <MIC>
-  Delete a stock from the watchlist.
-  Example: /d NYSE:TSLA
-\`\`\``
-
-helps.l = `\`\`\`
-/s [MIC]
-  Show info on given stock. No arg: all stocks.
-  Examples:
-    /l
-    /l NVDA
-\`\`\``
-
-helps.m = `\`\`\`
-/m <MIC> <amount> <delta> [upper_delta]
-  Monitor a stock's value. Notify when it goes out of range.
-  - MIC: must be added with '/a' first
-  - amount: base value to monitor
-  - delta: if upper_delta is omitted, uses ±delta
-  - upper_delta (optional): if set, uses (amount - delta) to (amount + upper_delta)
-  Examples:
-    /i NASDAQ:MSFT 500 25    → range: 475–525
-    /i NYSE:GOOG 1000 50 100 → range: 950–1100
-\`\`\``
+const trivia = `
+Tickers are unique codes that identify companies in trading markets.
+Examples: AAPL (Apple), TSLA (Tesla), NVDA (NVidia)
+`
 
 // COMMANDS
 
+cmds.h = async (args) => {
+    if (args.length != 1) {
+        await sendMsg(cmds.h.help)
+        return
+    }
+
+    const thing = args[0].toLowerCase()
+    if (thing == "ticker") {
+        await sendMsg(trivia)
+    } else {
+        const help = cmds[thing]?.help
+        await sendMsg(help || "I don't know this thing.")
+    }
+}
+
+cmds.h.help = `\`\`\`
+/h <thing>
+  Help with a given "thing".
+  - thing: h, a, d, s, m, ticker
+  Example: /h ticker
+\`\`\``
+
 cmds.a = async (args) => {
     if (args.length != 1) {
-        await cmds.h(['a'])
+        await sendMsg(cmds.a.help)
         return
     }
 
@@ -84,13 +64,21 @@ cmds.a = async (args) => {
     const added = db.addStock(mic)
     if (added) {
         sock.addTicker(mic, updateAndNotify)
-        await sendMsg(`Added ${mic} to the watchlist`)
-    } else await sendMsg(`${mic} is already in the watchlist`)
+        await sendMsg(`Added ${mic} to the watchlist.`)
+    } else {
+        await sendMsg(`${mic} is already in the watchlist.`)
+    }
 }
+
+cmds.a.help = `\`\`\`
+/a <ticker>
+  Add a ticker to the watchlist.
+  Example: /a TSLA
+\`\`\``
 
 cmds.d = async (args) => {
     if (args.length != 1) {
-        await cmds.h(['d'])
+        await sendMsg(cmds.d.help)
         return
     }
 
@@ -98,14 +86,23 @@ cmds.d = async (args) => {
     sock.removeTicker(mic)
 
     const deleted = db.delStock(mic)
-    if (deleted) await sendMsg(`Deleted ${mic} from the watchlist`)
-    else await sendMsg(`${mic} is not in the watchlist`)
+    if (deleted) {
+        await sendMsg(`Deleted ${mic} from the watchlist`)
+    } else {
+        await sendMsg(`${mic} is not in the watchlist`)
+    }
 }
+
+cmds.d.help = `\`\`\`
+/d <ticker>
+  Delete a ticker from the watchlist.
+  Example: /d TSLA
+\`\`\``
 
 // TODO: finish it
 cmds.s = async (args) => {
     if (args.length > 1) {
-        await cmds.h(['s'])
+        await sendMsg(cmds.s.help)
         return
     }
 
@@ -119,17 +116,29 @@ cmds.s = async (args) => {
     }
 
     if (stocks.length > 0) {
-        await sendMsg(stocks.reduce((acc, stock) => {
-            return acc + `{stock.stockMIC}\n`
-        }, ''))
-    } else if (args.length == 0) await sendMsg('Watchlist is empty')
-    else await sendMsg('No such entry in watchlist')
+        const msg = stocks.reduce((acc, stock) => {
+            return acc + `${stock.stockMIC}\n`
+        }, "")
+        await sendMsg(msg)
+    } else if (args.length == 0) {
+        await sendMsg("Watchlist is empty")
+    } else {
+        await sendMsg("No such entry in watchlist")
+    }
 }
+
+cmds.s.help = `\`\`\`
+/s [ticker]
+  Show info on given ticker. No arg: all known tickers.
+  Examples:
+    /s
+    /s NVDA
+\`\`\``
 
 // TODO: finish it here and in db
 cmds.m = async (args) => {
     if (args.length < 3 || args.length > 4) {
-        await cmds.h(['m'])
+        await sendMsg(cmds.m.help)
         return
     }
 
@@ -138,26 +147,31 @@ cmds.m = async (args) => {
     const diff = financial(args[2])
 
     if (value < 1 || diff < 0.01) {
-        await cmds.h(['m'])
+        await sendMsg(cmds.m.help)
         return
     }
 
     const invested = db.invest(mic, value, diff)
-    if (invested) await sendMsg(`Invested $${value} in ${mic} stocks`)
-    else if (db.getStock(mic)) await sendMsg(`No price info on ${mic} stocks yet`)
-    else await sendMsg(`${mic} is not in watchlist`)
-}
-
-cmds.h = async (args) => {
-    if (args.length != 1) {
-        await.sendMsg(helps.h)
-        return
+    if (invested) {
+        await sendMsg(`Invested $${value} in ${mic}`)
+    } else if (db.getStock(mic)) {
+        await sendMsg(`No price info on ${mic} yet`)
+    } else {
+        await sendMsg(`${mic} is not in watchlist`)
     }
-
-    const name = args[0].toLowerCase()
-    await sendMsg(helps.trivia)
-    await sendMsg(helps[name] || `abadabada`)
 }
+
+cmds.m.help = `\`\`\`
+/m <ticker> <value> <diff> [upper_diff]
+  Monitor a stock's value. Notify when it goes in/out of range.
+  - ticker: must be added with '/a' first
+  - value: base value to monitor
+  - diff: (value-diff,value+diff) is the range.
+  - upper_diff: Optional. If given, (value-diff,value+upper_diff) is the range.
+  Examples:
+    /m MSFT 500 25      → range: (475,525)
+    /m GOOG 1000 50 100 → range: (950,1100)
+\`\`\``
 
 // RUNNING
 
@@ -167,13 +181,13 @@ for (const stock of db.getStocks()) {
 }
 
 // register user that sent the first message
-bot.on('message', async (msg) => {
-    const newUser = msg.chat.id
+bot.on("message", async (msg) => {
+    const aUser = msg.chat.id
     if (!user) {
-        user = newUser
-        await sendMsg('I registered you as my owner')
-    } else if (user != newUser) {
-        await sendMsg('You are not my owner')
+        user = aUser
+        await sendMsg("I registered you as my owner")
+    } else if (user != aUser) {
+        await sendMsg("You are not my owner")
     }
 })
 
@@ -181,16 +195,21 @@ const MSG_REGEX = /^(?!\/\S).+/s
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 
 bot.onText(MSG_REGEX, async (msg) => {
-    if (user != msg.chat.id) return
-    await sendMsg(msg.text)
+    if (user == msg.chat.id) {
+        await sendMsg(msg.text)
+    }
 })
 
 bot.onText(CMD_REGEX, async (msg, match) => {
-    if (user != msg.chat.id) return
+    if (user != msg.chat.id) {
+        return
+    }
 
-    const name = match.groups.name
-    const cmd = cmds[name] || (args) => { cmds.h([name]) }
-    const args = match.groups.args?.split(' ') || []
+    const invalid = async (_) => {
+        await sendMsg("I don't know this command. Try `/h h`.")
+    }
 
+    const cmd = cmds[match.groups.name] || invalid
+    const args = match.groups.args?.split(" ") || []
     await cmd(args)
 })
