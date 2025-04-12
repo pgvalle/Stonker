@@ -5,24 +5,43 @@ const db = require('./db')
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const bot = new TelegramBot(TOKEN, { polling: true })
 const cmds = {}
-var user = null
+var owner = null
 
-// send message to user with markdown formatting
+// send message to owner with markdown formatting
 async function sendMsg(str) {
-    await bot.sendMessage(user, str, { parse_mode: 'Markdown' })
+    await bot.sendMessage(owner, str, { parse_mode: 'Markdown' })
 }
 
-// update stock info in db and notify user
+// check if It's the owner
+async function isOwner(user) {
+    if (owner) {
+        return owner == user
+    }
+
+    owner = user
+    await sendMsg("You are my owner. Get help with `/h h`.")
+    return false
+}
+
+// update stock info in db and notify owner
 async function updateAndNotify(data) {
     const row = db.updateStock(data.id, data.price)
     if (!row) return;
 
-    await sendMsg(row.stockMIC)
+    // TODO: do some proper formatting
+    await sendMsg(row.stockTicker)
 }
 
 // round to 2 decimal places
-function financial(x) {
+function formatMoney(x) {
     return Number(Number(x).toFixed(2))
+}
+
+// prettify table row information
+function formatRow(row, isUpdate) {
+    // important info
+    // ticker, price, value, value - initialvalue
+    return `${row}`
 }
 
 const trivia = `
@@ -34,7 +53,7 @@ Examples: AAPL (Apple), TSLA (Tesla), NVDA (NVidia)
 
 cmds.h = async (args) => {
     if (args.length != 1) {
-        await sendMsg(cmds.h.help)
+        await sendMsg("Wrong number of args.")
         return
     }
 
@@ -47,26 +66,26 @@ cmds.h = async (args) => {
     }
 }
 
-cmds.h.help = `\`\`\`
+cmds.h.help = `
 /h <thing>
   Help with a given "thing".
   - thing: h, a, d, s, m, ticker
   Example: /h ticker
-\`\`\``
+`
 
 cmds.a = async (args) => {
     if (args.length != 1) {
-        await sendMsg(cmds.a.help)
+        await sendMsg("Wrong number of args.")
         return
     }
 
-    const mic = args[0].toUpperCase()
-    const added = db.addStock(mic)
+    const ticker = args[0].toUpperCase()
+    const added = db.addStock(ticker)
     if (added) {
-        sock.addTicker(mic, updateAndNotify)
-        await sendMsg(`Added ${mic} to the watchlist.`)
+        sock.addTicker(ticker, updateAndNotify)
+        await sendMsg(`Added ${ticker} to the watchlist.`)
     } else {
-        await sendMsg(`${mic} is already in the watchlist.`)
+        await sendMsg(`${ticker} is already in the watchlist.`)
     }
 }
 
@@ -78,18 +97,18 @@ cmds.a.help = `\`\`\`
 
 cmds.d = async (args) => {
     if (args.length != 1) {
-        await sendMsg(cmds.d.help)
+        await sendMsg("Wrong number of args.")
         return
     }
 
-    const mic = args[0].toUpperCase()
-    sock.removeTicker(mic)
+    const ticker = args[0].toUpperCase()
+    sock.removeTicker(ticker)
 
-    const deleted = db.delStock(mic)
+    const deleted = db.delStock(ticker)
     if (deleted) {
-        await sendMsg(`Deleted ${mic} from the watchlist`)
+        await sendMsg(`Deleted ${ticker} from watchlist`)
     } else {
-        await sendMsg(`${mic} is not in the watchlist`)
+        await sendMsg(`${ticker} is not in the watchlist.`)
     }
 }
 
@@ -102,106 +121,108 @@ cmds.d.help = `\`\`\`
 // TODO: finish it
 cmds.s = async (args) => {
     if (args.length > 1) {
-        await sendMsg(cmds.s.help)
+        await sendMsg("Wrong number of args.")
         return
     }
 
-    var stocks = []
-    if (args.length == 0) {
-        stocks = db.getStocks()
-    } else {
-        const name = args[0].toUpperCase();
-        const stock = db.getStock(name)
-        stocks.push(stock)
+    if (args.length == 1) {
+        const ticker = args[0].toUpperCase();
+        const stock = db.getStock(ticker)
+        if (stock) {
+            await sendMsg(formatRow(stock))
+        } else {
+            await sendMsg(`${ticker} is not in the watchlist.`)
+        }
+
+        return
     }
 
-    if (stocks.length > 0) {
+    const stocks = db.getStocks()
+    if (stocks.length == 0) {
+        await sendMsg("Watchlist is empty.")
+    } else {
         const msg = stocks.reduce((acc, stock) => {
-            return acc + `${stock.stockMIC}\n`
+            return acc + formatRow(stock)
         }, "")
         await sendMsg(msg)
-    } else if (args.length == 0) {
-        await sendMsg("Watchlist is empty")
-    } else {
-        await sendMsg("No such entry in watchlist")
     }
 }
 
 cmds.s.help = `\`\`\`
 /s [ticker]
-  Show info on given ticker. No arg: all known tickers.
+  Show info on a given ticker.
+  No arg shows all known tickers.
   Examples:
     /s
     /s NVDA
 \`\`\``
 
-// TODO: finish it here and in db
-cmds.m = async (args) => {
+cmds.i = async (args) => {
     if (args.length < 3 || args.length > 4) {
-        await sendMsg(cmds.m.help)
+        await sendMsg("Wrong number of args.")
         return
     }
 
-    const mic = args[0].toUpperCase()
-    const value = financial(args[1])
-    const diff = financial(args[2])
-
-    if (value < 1 || diff < 0.01) {
-        await sendMsg(cmds.m.help)
+    const value = formatMoney(args[1])
+    if (isNaN(value) || value < 1 || value > 1000) {
+        await sendMsg("value must be a number between $1.00 and $1000.00")
         return
     }
 
-    const invested = db.invest(mic, value, diff)
+    const diff = formatMoney(args[2])
+    if (isNaN(diff) || diff < 0.01) {
+        await sendMsg("diff must be a number equal or greater than $1.00")
+        return
+    }
+
+    const upDiff = (args[3] ? formatMoney(args[3]) : diff)
+    if (isNaN(upDiff) || upDiff < 0.01) {
+        await sendMsg("upDiff must be a number equal or greater than $1.00")
+        return
+    }
+
+    const ticker = args[0].toUpperCase()
+    const invested = db.invest(ticker, value, diff, upDiff)
     if (invested) {
-        await sendMsg(`Invested $${value} in ${mic}`)
-    } else if (db.getStock(mic)) {
-        await sendMsg(`No price info on ${mic} yet`)
+        await sendMsg(`Invested $${value} in ${ticker}`)
+    } else if (db.getStock(ticker)) {
+        await sendMsg(`No price info on ${ticker} yet`)
     } else {
-        await sendMsg(`${mic} is not in watchlist`)
+        await sendMsg(`${ticker} is not in the watchlist. Add it with \`/a ${ticker}\``)
     }
 }
 
-cmds.m.help = `\`\`\`
-/m <ticker> <value> <diff> [upper_diff]
-  Monitor a stock's value. Notify when it goes in/out of range.
-  - ticker: must be added with '/a' first
-  - value: base value to monitor
-  - diff: (value-diff,value+diff) is the range.
-  - upper_diff: Optional. If given, (value-diff,value+upper_diff) is the range.
+cmds.i.help = `\`\`\`
+/i <ticker> <value> <diff> [upDiff]
+  Invest and monitor value.
+  Notify when it goes in/out of (value-diff,value+upDiff).
+  - ticker: must be added with \`/a <ticker>\` first
+  - value: must be between $1.00 and $1000.00
+  - diff: must be equal or greater than $0.01
+  - upDiff: upDiff=diff if ommited
   Examples:
-    /m MSFT 500 25      → range: (475,525)
-    /m GOOG 1000 50 100 → range: (950,1100)
+    /i MSFT 500 5.00  → range: (475.00,525.00)
+    /i GOOG 100 3 100 → range: (950.00,1100.00)
 \`\`\``
 
 // RUNNING
 
 // start watching stocks i have on the db
 for (const stock of db.getStocks()) {
-    sock.addTicker(stock.stockMIC, updateAndNotify);
+    sock.addTicker(stock.stockTicker, updateAndNotify);
 }
-
-// register user that sent the first message
-bot.on("message", async (msg) => {
-    const aUser = msg.chat.id
-    if (!user) {
-        user = aUser
-        await sendMsg("I registered you as my owner")
-    } else if (user != aUser) {
-        await sendMsg("You are not my owner")
-    }
-})
 
 const MSG_REGEX = /^(?!\/\S).+/s
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 
 bot.onText(MSG_REGEX, async (msg) => {
-    if (user == msg.chat.id) {
+    if (isOwner(msg.chat.id)) {
         await sendMsg(msg.text)
     }
 })
 
 bot.onText(CMD_REGEX, async (msg, match) => {
-    if (user != msg.chat.id) {
+    if (!isOwner(msg.chat.id)) {
         return
     }
 
