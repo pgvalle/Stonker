@@ -26,8 +26,7 @@ async function updateAndNotify(data) {
     if (!row) return;
 
     // TODO: do some proper formatting
-    await sendMsg('You got something going on!')
-    await sendMsg(row.stockTicker)
+    await sendMsg("You got something going on!\n" + formatRow(row))
 }
 
 // round to 2 decimal places
@@ -37,10 +36,24 @@ function formatMoney(x) {
 
 // prettify table row information
 // TODO: finish this
-function formatRow(row, isUpdate) {
-    // important info
-    // ticker, price, value, value - initialvalue
-    return `${row}`
+function formatRow(row) {
+    const stockPriceStr = (row.stockPrice ? row.stockPrice.toFixed(2) : "??")
+
+    if (!row.value) {
+        return `${row.stockTicker}
+                Price: $${stockPriceStr} 
+                Invested: $??`.replace(/\n\s+/g, "\n")
+    }
+
+    const diff = row.value - row.initialValue
+    const diffPct = diff / row.initialValue * 100
+    const diffStr = (diff >= 0 ? "+$" : diff < 0 ? "-$" : "$") + Math.abs(diff).toFixed(2)
+    const diffPctStr = diffPct.toFixed(2) + "%"
+
+    return `${row.stockTicker}
+            Price: $${stockPriceStr} 
+            Invested: $${row.initialValue} | Now: $${row.value.toFixed(2)}
+            Change: ${diffStr} (${diffPctStr}) | Min: $${row.minValue} Max: $${row.maxValue}`.replace(/\n\s+/g, "\n")
 }
 
 const trivia = `
@@ -141,7 +154,7 @@ cmds.s = async (args) => {
         await sendMsg("Watchlist is empty.")
     } else {
         const msg = stocks.reduce((acc, stock) => {
-            return acc + formatRow(stock)
+            return acc + formatRow(stock) + '\n'
         }, "")
         await sendMsg(msg)
     }
