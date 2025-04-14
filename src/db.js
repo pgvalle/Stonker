@@ -44,7 +44,7 @@ exports.delStock = (ticker) => {
 }
 
 exports.updateStock = db.transaction((ticker, price) => {
-    const b4 = getStock(ticker)
+    const b4 = exports.getStock(ticker)
     const now = db.prepare(`
         UPDATE investment SET
             stockPrice = @price,
