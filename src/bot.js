@@ -12,18 +12,17 @@ async function sendMsg(str) {
 }
 
 function isOwner(user) {
-    if (!owner) {
-        owner = user
-        sendMsg("You are my owner. Get help with `/h h`.")
-    }
+    if (owner) return owner == user;
 
-    return owner == user
+    owner = user
+    sendMsg("You are my owner. Get help with `/h h`.")
+    return false
 }
 
 // update stock info in db and notify owner
 async function updateAndNotify(data) {
     const row = db.updateStock(data.id, data.price)
-    if (!row) return;
+    if (!row) return
 
     // TODO: do some proper formatting
     await sendMsg("You got something going on!\n" + formatRow(row))
@@ -196,7 +195,7 @@ cmds.i = async (args) => {
     const ticker = args[0].toUpperCase()
     const invested = db.invest(ticker, value, diff, upDiff)
     if (invested) {
-        await sendMsg(`Invested $${value} in ${ticker}.`)
+        await sendMsg(formatRow(invested))
     } else if (db.getStock(ticker)) {
         await sendMsg(`No price info on ${ticker} yet.`)
     } else {
@@ -233,9 +232,7 @@ bot.onText(MSG_REGEX, async (msg) => {
 
 const CMD_REGEX = /^\/(?<name>\S+)(?:\s+(?<args>.+))?$/
 bot.onText(CMD_REGEX, async (msg, match) => {
-    if (!isOwner(msg.chat.id)) {
-        return
-    }
+    if (!isOwner(msg.chat.id)) return
 
     const invalid = async (_) => {
         await sendMsg("I don't know this command. Try `/h h`.")
