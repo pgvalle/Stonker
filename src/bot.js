@@ -4,7 +4,6 @@ const db = require('./db')
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const bot = new TelegramBot(TOKEN, { polling: true })
-const cmds = {}
 var owner = null
 
 async function sendMsg(str) {
@@ -14,45 +13,22 @@ async function sendMsg(str) {
 function isOwner(user) {
     if (owner) return owner == user;
 
-    owner = user
     sendMsg("You are my owner. Get help with `/h h`.")
+    owner = user
     return false
 }
 
 // update stock info in db and notify owner
 async function updateAndNotify(data) {
     const row = db.updateStock(data.id, data.price)
-    if (!row) return
-
-    // TODO: do some proper formatting
-    await sendMsg("You got something going on!\n" + formatRow(row))
+    if (row) {
+        await sendMsg(`You got something going on with ${db.formatRow(row)}`)
+    }
 }
 
 // round to 2 decimal places
-function formatMoney(x) {
+function strTo2f(x) {
     return Number(Number(x).toFixed(2))
-}
-
-// prettify table row information
-// TODO: finish this
-function formatRow(row) {
-    const stockPriceStr = (row.stockPrice ? row.stockPrice.toFixed(2) : "??")
-
-    if (!row.value) {
-        return `${row.stockTicker}
-                Price: $${stockPriceStr} 
-                Invested: $??`.replace(/\n\s+/g, "\n")
-    }
-
-    const diff = row.value - row.initialValue
-    const diffPct = diff / row.initialValue * 100
-    const diffStr = (diff >= 0 ? "+$" : diff < 0 ? "-$" : "$") + Math.abs(diff).toFixed(2)
-    const diffPctStr = diffPct.toFixed(2) + "%"
-
-    return `${row.stockTicker}
-            Price: $${stockPriceStr} 
-            Invested: $${row.initialValue} | Now: $${row.value.toFixed(2)}
-            Change: ${diffStr} (${diffPctStr}) | Min: $${row.minValue} Max: $${row.maxValue}`.replace(/\n\s+/g, "\n")
 }
 
 const trivia = `
@@ -61,6 +37,7 @@ Examples: AAPL (Apple), TSLA (Tesla), NVDA (NVidia)
 `
 
 // COMMANDS
+const cmds = {}
 
 cmds.h = async (args) => {
     if (args.length != 1) {
@@ -129,7 +106,6 @@ cmds.d.help = `\`\`\`
   Example: /d TSLA
 \`\`\``
 
-// TODO: finish it
 cmds.s = async (args) => {
     if (args.length > 1) {
         await sendMsg("Wrong number of args.")
@@ -140,7 +116,7 @@ cmds.s = async (args) => {
         const ticker = args[0].toUpperCase();
         const stock = db.getStock(ticker)
         if (stock) {
-            await sendMsg(formatRow(stock))
+            await sendMsg(db.formatRow(stock))
         } else {
             await sendMsg(`${ticker} is not in the watchlist. Add it with \`/a ${ticker}\`.`)
         }
@@ -153,9 +129,9 @@ cmds.s = async (args) => {
         await sendMsg("Watchlist is empty.")
     } else {
         const msg = stocks.reduce((acc, stock) => {
-            return acc + formatRow(stock) + '\n'
-        }, "")
-        await sendMsg(msg)
+            return acc + `\n${stock.stockTicker}`
+        }, "Known tickers:")
+        await setndMsg(msg)
     }
 }
 
@@ -174,19 +150,19 @@ cmds.i = async (args) => {
         return
     }
 
-    const value = formatMoney(args[1])
+    const value = strTo2f(args[1])
     if (isNaN(value) || value < 1 || value > 1000) {
         await sendMsg("value must be a number between $1.00 and $1000.00")
         return
     }
 
-    const diff = formatMoney(args[2])
+    const diff = strTo2f(args[2])
     if (isNaN(diff) || diff < 0.01) {
         await sendMsg("diff must be a number equal or greater than $1.00")
         return
     }
 
-    const upDiff = (args[3] ? formatMoney(args[3]) : diff)
+    const upDiff = (args[3] ? strTo2f(args[3]) : diff)
     if (isNaN(upDiff) || upDiff < 0.01) {
         await sendMsg("upDiff must be a number equal or greater than $1.00")
         return
@@ -195,7 +171,7 @@ cmds.i = async (args) => {
     const ticker = args[0].toUpperCase()
     const invested = db.invest(ticker, value, diff, upDiff)
     if (invested) {
-        await sendMsg(formatRow(invested))
+        await sendMsg(db.formatRow(invested))
     } else if (db.getStock(ticker)) {
         await sendMsg(`No price info on ${ticker} yet.`)
     } else {
