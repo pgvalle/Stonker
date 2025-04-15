@@ -12,4 +12,4 @@ COPY src ./src
 RUN npm install
 
 # run the application
-CMD ["node", "src/main.js"]
+CMD ["node", "src/bot.js"]
