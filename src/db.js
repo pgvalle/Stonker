@@ -16,6 +16,26 @@ db.prepare(`
 
 // EXPORTS
 
+exports.formatRow = (row) => {
+    const stockPriceStr = (row.stockPrice ? row.stockPrice.toFixed(2) : "??")
+    
+    if (!row.value) {
+        const fmt = `${row.stockTicker}
+                     Price: $${stockPriceStr}
+                     Invested: $??`
+        return fmt.replace(/\n\s+/g, "\n")
+    }
+
+    const diff = row.value - row.initialValue
+    const diffStr = (diff >= 0 ? "+$" : "-$") + Math.abs(diff).toFixed(2)
+
+    const fmt = `${row.stockTicker}
+                 Price: $${stockPriceStr}
+                 Invested: $${row.initialValue} | Now: $${row.value.toFixed(2)}
+                 Change: ${diffStr} | Min: $${row.minValue} Max: $${row.maxValue}`
+    return fmt.replace(/\n\s+/g, "\n")
+}
+
 exports.getStock = (ticker) => {
     return db.prepare(`
         SELECT * FROM investment
