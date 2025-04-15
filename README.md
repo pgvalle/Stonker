@@ -128,9 +128,16 @@ because this requirement was just complicating everything.
 ## Technology Stack
 
 - **SQLite3** - I demanded persistence, and sqlite already does the heavylifting of data manipulation for you.
-- **NodeJS** - Using it would improve my portfolio since It's javascript is a big name and I have never played much with it before this project.
-- **[yagop/node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)** - Initially, I considered WhatsApp, because here in Brazil **EVERYONE** has a Whatsapp account. But all the options I had required stuff like creating an account or having a spare phone number. Telegram turned out to be a better option.
-- **[gregtuc/StockSocket](https://github.com/gregtuc/StockSocket)** - Provides real-time stock data updates via websockets. It's archived, but it works.
+- **NodeJS** - Using it would improve my portfolio.
+  Javascript is a big name and I have never played much with it before this project.
+- **[yagop/node-telegram-bot-api](https://github.com/yagop/node-telegram-bot-api)** - Initially, I considered WhatsApp,
+  because here in Brazil **EVERYONE** has a Whatsapp account.
+  But all the options I had required stuff like creating an account or having a spare phone number.
+  Telegram turned out to be a better option.
+- **[gregtuc/StockSocket](https://github.com/gregtuc/StockSocket)** - Provides real-time stock data updates via websockets.
+  It's archived, but it works.
+- **[Docker](https://www.docker.com/)** - A friend of mine suggested me to use docker.
+  I think it was a great idea.
 
 ## Future Improvements
 
